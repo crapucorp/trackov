@@ -29,6 +29,7 @@ jobs:
       - name: Build Electron app and publish
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          CSC_IDENTITY_AUTO_DISCOVERY: false
         run: npm run electron:build:win -- --publish always
       
       - name: Upload artifacts
