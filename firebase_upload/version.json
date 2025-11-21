@@ -1,0 +1,9 @@
+{
+  "version": "1.0.2",
+  "releaseDate": "2025-11-21",
+  "files": {
+    "tasks": "data/tasks_1.0.0.json",
+    "hideout": "data/hideout_1.0.0.json"
+  },
+  "changelog": "TEST v1.0.2 - Affichage version dans le titre !"
+}

@@ -1,0 +1,73 @@
+{
+  "name": "tarkov-tracker",
+  "private": true,
+  "version": "1.0.0",
+  "main": "electron/main.js",
+  "description": "TarkovTracker - Kappa Item Tracker for Escape from Tarkov",
+  "author": "TarkovTracker",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "lint": "eslint .",
+    "preview": "vite preview",
+    "electron:dev": "concurrently \"npm run dev\" \"wait-on http://localhost:5173 && cross-env NODE_ENV=development electron .\"",
+    "electron:build": "npm run build && electron-builder",
+    "electron:build:win": "npm run build && electron-builder --win"
+  },
+  "build": {
+    "appId": "com.tarkovtracker.app",
+    "productName": "TarkovTracker",
+    "directories": {
+      "output": "release"
+    },
+    "files": [
+      "dist/**/*",
+      "electron/**/*",
+      "assets/**/*"
+    ],
+    "win": {
+      "target": [
+        "nsis"
+      ],
+      "icon": "assets/icon.png"
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true
+    },
+    "publish": {
+      "provider": "github",
+      "owner": "crapucorp",
+      "repo": "trackov"
+    }
+  },
+  "dependencies": {
+    "electron-updater": "^6.6.2",
+    "esbuild": "^0.21.5",
+    "firebase": "^12.6.0",
+    "framer-motion": "^12.23.24",
+    "react": "^19.2.0",
+    "react-dom": "^19.2.0"
+  },
+  "devDependencies": {
+    "@eslint/js": "^9.39.1",
+    "@types/react": "^19.2.5",
+    "@types/react-dom": "^19.2.3",
+    "@vitejs/plugin-react": "^5.1.1",
+    "autoprefixer": "^10.4.22",
+    "concurrently": "^9.2.1",
+    "cross-env": "^10.1.0",
+    "electron": "^39.2.3",
+    "electron-builder": "^26.0.12",
+    "eslint": "^9.39.1",
+    "eslint-plugin-react-hooks": "^7.0.1",
+    "eslint-plugin-react-refresh": "^0.4.24",
+    "globals": "^16.5.0",
+    "postcss": "^8.5.6",
+    "tailwindcss": "^3.4.1",
+    "vite": "^5.4.21",
+    "wait-on": "^9.0.3"
+  }
+}

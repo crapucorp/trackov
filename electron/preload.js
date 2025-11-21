@@ -1,0 +1,33 @@
+const { contextBridge, ipcRenderer } = require('electron');
+
+// Expose protected methods that allow the renderer process to use
+// the ipcRenderer without exposing the entire object
+contextBridge.exposeInMainWorld('electron', {
+    // File system operations
+    saveProgress: (data) => ipcRenderer.invoke('save-progress', data),
+    loadProgress: () => ipcRenderer.invoke('load-progress'),
+    getAppVersion: () => ipcRenderer.invoke('get-app-version'),
+    getDocumentsPath: () => ipcRenderer.invoke('get-documents-path'),
+
+    // Update data operations (Firebase)
+    saveUpdateData: (data, version) => ipcRenderer.invoke('save-update-data', data, version),
+    loadUpdateData: () => ipcRenderer.invoke('load-update-data'),
+
+    // Check if running in Electron
+    isElectron: true,
+
+    // App updater (electron-updater)
+    appUpdater: {
+        checkForUpdates: () => ipcRenderer.invoke('check-for-app-updates'),
+        downloadUpdate: () => ipcRenderer.invoke('download-app-update'),
+        installUpdate: () => ipcRenderer.invoke('install-app-update'),
+
+        // Event listeners
+        onChecking: (callback) => ipcRenderer.on('app-update-checking', callback),
+        onAvailable: (callback) => ipcRenderer.on('app-update-available', (event, info) => callback(info)),
+        onNotAvailable: (callback) => ipcRenderer.on('app-update-not-available', callback),
+        onError: (callback) => ipcRenderer.on('app-update-error', (event, error) => callback(error)),
+        onDownloadProgress: (callback) => ipcRenderer.on('app-update-download-progress', (event, progress) => callback(progress)),
+        onDownloaded: (callback) => ipcRenderer.on('app-update-downloaded', (event, info) => callback(info)),
+    }
+});

@@ -1,0 +1,336 @@
+import React, { useState, useEffect, useMemo } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
+import DataCard from './DataCard';
+import UpdateNotification from './components/UpdateNotification';
+import AppUpdater from './components/AppUpdater';
+import { loadProgress, saveProgress } from './services/fileSystem';
+import { checkForUpdates, loadAppData } from './services/autoUpdate';
+
+const TABS = [
+    { id: 'kappa', label: 'KAPPA COLLECTOR' },
+    { id: 'quests', label: 'QUEST ITEMS' },
+    { id: 'hideout', label: 'HIDEOUT MODULES' },
+];
+
+const KappaTracker = () => {
+    const [activeTab, setActiveTab] = useState('kappa');
+    const [items, setItems] = useState({ kappa: [], quests: [], hideout: [] });
+    const [loading, setLoading] = useState(true);
+    const [itemCounts, setItemCounts] = useState({});
+    const [searchTerm, setSearchTerm] = useState('');
+    const [updateInfo, setUpdateInfo] = useState(null);
+    const [showUpdateNotification, setShowUpdateNotification] = useState(false);
+
+    useEffect(() => {
+        const processData = async () => {
+            try {
+                // Check for updates on startup
+                const updateCheck = await checkForUpdates();
+                if (updateCheck.available) {
+                    setUpdateInfo(updateCheck);
+                    setShowUpdateNotification(true);
+                }
+
+                // Load user progress from file system (or localStorage as fallback)
+                const progressResult = await loadProgress();
+                if (progressResult.success && progressResult.data) {
+                    setItemCounts(progressResult.data);
+                    console.log('✅ Progress loaded:', Object.keys(progressResult.data).length, 'items');
+                }
+
+                // Load app data (downloaded or bundled)
+                const appData = await loadAppData();
+                console.log(`📦 Data source: ${appData.source} (version: ${appData.version})`);
+
+                const tasksData = appData.tasks;
+                const hideoutData = appData.hideout;
+
+                // Process Kappa (Collector quest)
+                const collectorTask = tasksData.find(t => t.name === 'Collector');
+                const kappaItems = collectorTask ? processObjectives(collectorTask.objectives) : [];
+
+                // Process all quest items
+                const allQuestItems = tasksData.flatMap(t => processObjectives(t.objectives));
+                const uniqueQuestItems = Array.from(new Map(allQuestItems.map(item => [item.id, item])).values());
+
+                // Process hideout items
+                const hideoutItems = hideoutData.flatMap(station =>
+                    station.levels.flatMap(level =>
+                        level.itemRequirements.map(req => ({
+                            id: req.item.id,
+                            name: req.item.name,
+                            shortName: req.item.shortName,
+                            iconLink: req.item.iconLink,
+                            wikiLink: req.item.wikiLink,
+                            count: req.count
+                        }))
+                    )
+                );
+                const uniqueHideoutItems = Array.from(new Map(hideoutItems.map(item => [item.id, item])).values());
+
+                setItems({
+                    kappa: kappaItems,
+                    quests: uniqueQuestItems,
+                    hideout: uniqueHideoutItems
+                });
+
+            } catch (err) {
+                console.error('Data processing error:', err);
+            } finally {
+                setLoading(false);
+            }
+        };
+
+        processData();
+    }, []);
+
+    const processObjectives = (objectives) => {
+        return objectives
+            .filter(obj => obj.item)
+            .map(obj => ({
+                id: obj.item.id,
+                name: obj.item.name,
+                shortName: obj.item.shortName,
+                iconLink: obj.item.iconLink,
+                wikiLink: obj.item.wikiLink,
+                count: obj.count,
+                foundInRaid: obj.foundInRaid
+            }));
+    };
+
+    useEffect(() => {
+        // Save to file system whenever itemCounts changes
+        const save = async () => {
+            const result = await saveProgress(itemCounts);
+            if (!result.success) {
+                console.error('Failed to save progress:', result.error);
+            }
+        };
+        save();
+    }, [itemCounts]);
+
+    // Create a map of item requirements for easy lookup
+    const itemRequirements = useMemo(() => {
+        const map = new Map();
+        [...items.kappa, ...items.quests, ...items.hideout].forEach(item => {
+            map.set(item.id, item.count || 1);
+        });
+        return map;
+    }, [items]);
+
+    const updateItemCount = (id, delta) => {
+        setItemCounts(prev => {
+            const currentCount = prev[id] || 0;
+            const required = itemRequirements.get(id) || 1;
+            const newCount = Math.max(0, Math.min(required, currentCount + delta));
+            return { ...prev, [id]: newCount };
+        });
+    };
+
+    const currentItems = items[activeTab] || [];
+
+    const filteredItems = useMemo(() => {
+        return currentItems.filter(item =>
+            item.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+            item.shortName.toLowerCase().includes(searchTerm.toLowerCase())
+        );
+    }, [currentItems, searchTerm]);
+
+    // Calculate Progress based on counts
+    const progress = useMemo(() => {
+        if (currentItems.length === 0) return 0;
+
+        let totalRequired = 0;
+        let totalFound = 0;
+
+        currentItems.forEach(item => {
+            const required = item.count || 1;
+            const found = itemCounts[item.id] || 0;
+
+            totalRequired += required;
+            totalFound += Math.min(found, required);
+        });
+
+        return totalRequired > 0 ? Math.round((totalFound / totalRequired) * 100) : 0;
+    }, [currentItems, itemCounts]);
+
+    if (loading) {
+        return (
+            <div className="min-h-screen flex items-center justify-center bg-[#0a0f14] relative overflow-hidden">
+                <div className="scanline-blue"></div>
+                <div className="flex flex-col items-center space-y-6 z-10">
+                    <div className="w-64 h-1 bg-cyan-900/30 overflow-hidden relative">
+                        <motion.div
+                            animate={{ x: [-256, 256] }}
+                            transition={{ duration: 1.5, repeat: Infinity, ease: "linear" }}
+                            className="w-32 h-full bg-cyan-500 blur-md absolute"
+                        />
+                    </div>
+                    <p className="text-cyan-500 font-mono text-xs tracking-[0.3em] animate-pulse">INITIALIZING TERRAGROUP OS...</p>
+                </div>
+            </div>
+        );
+    }
+
+    return (
+        <div className="min-h-screen bg-[#0a0f14] text-cyan-50 font-mono relative overflow-x-hidden selection:bg-cyan-500/30">
+            <div className="scanline-blue"></div>
+
+            {/* App Code Update Notification (electron-updater) */}
+            <AppUpdater />
+
+            {/* Data Update Notification (Firebase) */}
+            {showUpdateNotification && updateInfo && (
+                <UpdateNotification
+                    updateInfo={updateInfo}
+                    onClose={() => setShowUpdateNotification(false)}
+                    onUpdateApplied={() => {
+                        // Reload the page to apply update
+                        window.location.reload();
+                    }}
+                />
+            )}
+
+            {/* Top Bar / Header */}
+            <header className="sticky top-0 z-50 bg-[#0a0f14]/90 backdrop-blur-md border-b border-cyan-900/30">
+                <div className="max-w-7xl mx-auto px-4 h-16 flex items-center justify-between">
+                    <div className="flex items-center gap-4">
+                        <div className="w-8 h-8 bg-cyan-500/10 border border-cyan-500/50 flex items-center justify-center">
+                            <div className="w-4 h-4 bg-cyan-500 rotate-45"></div>
+                        </div>
+                        <h1 className="text-xl font-bold tracking-tighter text-white">
+                            TERRAGROUP <span className="text-cyan-500">OS</span>
+                        </h1>
+                    </div>
+
+                    {/* Tabs */}
+                    <nav className="hidden md:flex items-center gap-1">
+                        {TABS.map(tab => (
+                            <button
+                                key={tab.id}
+                                onClick={() => setActiveTab(tab.id)}
+                                className={`
+                  px-6 py-2 text-xs font-bold tracking-widest transition-all relative overflow-hidden
+                  ${activeTab === tab.id
+                                        ? 'text-black bg-cyan-500'
+                                        : 'text-cyan-500/50 hover:text-cyan-400 hover:bg-cyan-900/10'
+                                    }
+                `}
+                            >
+                                {tab.label}
+                                {activeTab === tab.id && (
+                                    <motion.div
+                                        layoutId="activeTabIndicator"
+                                        className="absolute bottom-0 left-0 w-full h-[2px] bg-white"
+                                    />
+                                )}
+                            </button>
+                        ))}
+                    </nav>
+
+                    {/* Mobile Menu Button */}
+                    <div className="md:hidden text-cyan-500">///</div>
+                </div>
+            </header>
+
+            {/* Main Content */}
+            <main className="max-w-7xl mx-auto p-4 md:p-8 relative z-10">
+
+                {/* Stats Bar */}
+                <div className="flex flex-col md:flex-row items-end justify-between gap-6 mb-8">
+                    <div className="w-full md:w-auto">
+                        <h2 className="text-4xl font-bold text-white mb-1 glitch-text-blue">{TABS.find(t => t.id === activeTab).label}</h2>
+                        <p className="text-xs text-cyan-700 uppercase tracking-widest">
+                            DATABASE_ID: {activeTab.toUpperCase()}_V2.0 // LOCAL DATABASE
+                        </p>
+                    </div>
+
+                    <div className="w-full md:w-96">
+                        <div className="flex justify-between text-xs text-cyan-400 mb-2 font-bold">
+                            <span>PROGRESS</span>
+                            <span>{progress}%</span>
+                        </div>
+                        <div className="h-2 bg-cyan-900/20 w-full overflow-hidden">
+                            <motion.div
+                                initial={{ width: 0 }}
+                                animate={{ width: `${progress}%` }}
+                                transition={{ duration: 1, ease: "circOut" }}
+                                className="h-full bg-cyan-500 relative"
+                            >
+                                <div className="absolute inset-0 bg-white/20 animate-[shimmer_2s_infinite]"></div>
+                            </motion.div>
+                        </div>
+                    </div>
+                </div>
+
+                {/* Search */}
+                <div className="mb-8 sticky top-20 z-40">
+                    <div className="relative">
+                        <input
+                            type="text"
+                            placeholder={`SEARCH ${activeTab.toUpperCase()} DATABASE...`}
+                            value={searchTerm}
+                            onChange={(e) => setSearchTerm(e.target.value)}
+                            className="w-full bg-[#0c1219]/90 backdrop-blur border border-cyan-900/50 px-6 py-4 text-cyan-100 focus:outline-none focus:border-cyan-500 focus:shadow-[0_0_20px_rgba(6_182_212_0.1)] transition-all placeholder-cyan-900 uppercase tracking-wider"
+                        />
+                        <div className="absolute right-4 top-1/2 -translate-y-1/2 text-cyan-700 text-xs animate-pulse">
+                            _CURSOR_ACTIVE
+                        </div>
+                    </div>
+                </div>
+
+                {/* Mobile Tabs */}
+                <div className="md:hidden flex gap-2 mb-6 overflow-x-auto pb-2">
+                    {TABS.map(tab => (
+                        <button
+                            key={tab.id}
+                            onClick={() => setActiveTab(tab.id)}
+                            className={`
+                                flex-shrink-0 px-4 py-2 text-[10px] font-bold border transition-colors
+                                ${activeTab === tab.id
+                                    ? 'bg-cyan-500 border-cyan-500 text-black'
+                                    : 'bg-transparent border-cyan-900 text-cyan-700'
+                                }
+                            `}
+                        >
+                            {tab.label}
+                        </button>
+                    ))}
+                </div>
+
+                {/* Grid */}
+                <motion.div
+                    layout
+                    className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4 pb-20"
+                >
+                    <AnimatePresence mode='popLayout'>
+                        {filteredItems.slice(0, 100).map((item, index) => (
+                            <DataCard
+                                key={`${activeTab}-${item.id}`}
+                                item={item}
+                                index={index}
+                                count={itemCounts[item.id] || 0}
+                                onUpdateCount={updateItemCount}
+                            />
+                        ))}
+                    </AnimatePresence>
+                </motion.div>
+
+                {filteredItems.length > 100 && (
+                    <div className="text-center py-8 text-cyan-800 text-xs">
+                        WARNING: DISPLAY LIMITED TO 100 ITEMS FOR OPTIMAL TERMINAL PERFORMANCE. REFINE SEARCH QUERY.
+                    </div>
+                )}
+
+                {filteredItems.length === 0 && (
+                    <div className="text-center py-20 border border-dashed border-cyan-900/30 rounded">
+                        <p className="text-cyan-700">NO MATCHING RECORDS IN ARCHIVE.</p>
+                    </div>
+                )}
+
+            </main>
+        </div>
+    );
+};
+
+export default KappaTracker;

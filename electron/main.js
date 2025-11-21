@@ -1,0 +1,269 @@
+const { app, BrowserWindow, ipcMain } = require('electron');
+const { autoUpdater } = require('electron-updater');
+const path = require('path');
+const fs = require('fs').promises;
+const os = require('os');
+
+// Path to user's Documents folder
+const DOCUMENTS_PATH = path.join(os.homedir(), 'Documents', 'TarkovTracker');
+const PROGRESS_FILE = path.join(DOCUMENTS_PATH, 'progress.json');
+
+let mainWindow;
+
+// Create the main application window
+function createWindow() {
+    mainWindow = new BrowserWindow({
+        width: 1400,
+        height: 900,
+        minWidth: 1000,
+        minHeight: 700,
+        backgroundColor: '#0a0f14',
+        webPreferences: {
+            nodeIntegration: false,
+            contextIsolation: true,
+            preload: path.join(__dirname, 'preload.js')
+        },
+        icon: path.join(__dirname, '../assets/icon.png'),
+        titleBarStyle: 'default',
+        autoHideMenuBar: true
+    });
+
+    // Load the React app
+    const isDev = process.env.NODE_ENV === 'development';
+
+    if (isDev) {
+        mainWindow.loadURL('http://localhost:5173');
+        mainWindow.webContents.openDevTools();
+    } else {
+        mainWindow.loadFile(path.join(__dirname, '../dist/index.html'));
+        // Open DevTools in production to debug
+        mainWindow.webContents.openDevTools();
+    }
+
+    mainWindow.on('closed', () => {
+        mainWindow = null;
+    });
+}
+
+// Ensure Documents/TarkovTracker folder exists
+async function ensureDocumentsFolder() {
+    try {
+        await fs.mkdir(DOCUMENTS_PATH, { recursive: true });
+        console.log('Documents folder created/verified:', DOCUMENTS_PATH);
+    } catch (error) {
+        console.error('Error creating documents folder:', error);
+    }
+}
+
+// IPC Handlers
+ipcMain.handle('save-progress', async (event, progressData) => {
+    try {
+        await ensureDocumentsFolder();
+        await fs.writeFile(PROGRESS_FILE, JSON.stringify(progressData, null, 2), 'utf-8');
+        console.log('Progress saved to:', PROGRESS_FILE);
+        return { success: true };
+    } catch (error) {
+        console.error('Error saving progress:', error);
+        return { success: false, error: error.message };
+    }
+});
+
+ipcMain.handle('load-progress', async () => {
+    try {
+        const data = await fs.readFile(PROGRESS_FILE, 'utf-8');
+        console.log('Progress loaded from:', PROGRESS_FILE);
+        return { success: true, data: JSON.parse(data) };
+    } catch (error) {
+        if (error.code === 'ENOENT') {
+            // File doesn't exist yet, return empty object
+            console.log('No progress file found, starting fresh');
+            return { success: true, data: {} };
+        }
+        console.error('Error loading progress:', error);
+        return { success: false, error: error.message };
+    }
+});
+
+ipcMain.handle('get-app-version', () => {
+    return app.getVersion();
+});
+
+ipcMain.handle('get-documents-path', () => {
+    return DOCUMENTS_PATH;
+});
+
+// Handler for saving update data
+ipcMain.handle('save-update-data', async (event, data, version) => {
+    try {
+        const dataFolder = path.join(DOCUMENTS_PATH, 'data');
+        await fs.mkdir(dataFolder, { recursive: true });
+
+        // Save tasks data
+        const tasksFile = path.join(dataFolder, 'tasks.json');
+        await fs.writeFile(tasksFile, JSON.stringify(data.tasks, null, 2), 'utf-8');
+
+        // Save hideout data
+        const hideoutFile = path.join(dataFolder, 'hideout.json');
+        await fs.writeFile(hideoutFile, JSON.stringify(data.hideout, null, 2), 'utf-8');
+
+        // Save version info
+        const versionFile = path.join(dataFolder, 'version.txt');
+        await fs.writeFile(versionFile, version, 'utf-8');
+
+        console.log(`Update data saved (version ${version})`);
+        return { success: true };
+    } catch (error) {
+        console.error('Error saving update data:', error);
+        return { success: false, error: error.message };
+    }
+});
+
+// Handler for loading update data
+ipcMain.handle('load-update-data', async () => {
+    try {
+        const dataFolder = path.join(DOCUMENTS_PATH, 'data');
+
+        // Check if data exists
+        const tasksFile = path.join(dataFolder, 'tasks.json');
+        const hideoutFile = path.join(dataFolder, 'hideout.json');
+        const versionFile = path.join(dataFolder, 'version.txt');
+
+        try {
+            await fs.access(tasksFile);
+            await fs.access(hideoutFile);
+        } catch {
+            // Files don't exist
+            return { success: false, error: 'No update data found' };
+        }
+
+        // Load data
+        const tasksData = await fs.readFile(tasksFile, 'utf-8');
+        const hideoutData = await fs.readFile(hideoutFile, 'utf-8');
+
+        let version = '1.0.0';
+        try {
+            version = await fs.readFile(versionFile, 'utf-8');
+        } catch {
+            // Version file doesn't exist
+        }
+
+        console.log(`Update data loaded (version ${version})`);
+        return {
+            success: true,
+            data: {
+                tasks: JSON.parse(tasksData),
+                hideout: JSON.parse(hideoutData)
+            },
+            version: version.trim()
+        };
+    } catch (error) {
+        console.error('Error loading update data:', error);
+        return { success: false, error: error.message };
+    }
+});
+
+
+// ============================================
+// AUTO-UPDATER CONFIGURATION
+// ============================================
+
+// Configure auto-updater
+autoUpdater.autoDownload = false; // Don't auto-download, ask user first
+autoUpdater.autoInstallOnAppQuit = true; // Install when app closes
+
+// Auto-updater event listeners
+autoUpdater.on('checking-for-update', () => {
+    console.log('🔍 Checking for application updates...');
+    if (mainWindow) {
+        mainWindow.webContents.send('app-update-checking');
+    }
+});
+
+autoUpdater.on('update-available', (info) => {
+    console.log('✨ App update available:', info.version);
+    if (mainWindow) {
+        mainWindow.webContents.send('app-update-available', info);
+    }
+});
+
+autoUpdater.on('update-not-available', (info) => {
+    console.log('✅ App is up to date');
+    if (mainWindow) {
+        mainWindow.webContents.send('app-update-not-available');
+    }
+});
+
+autoUpdater.on('error', (err) => {
+    console.error('❌ Error in auto-updater:', err);
+    if (mainWindow) {
+        mainWindow.webContents.send('app-update-error', err.message);
+    }
+});
+
+autoUpdater.on('download-progress', (progressObj) => {
+    const message = `Downloaded ${progressObj.percent.toFixed(2)}%`;
+    console.log(message);
+    if (mainWindow) {
+        mainWindow.webContents.send('app-update-download-progress', progressObj);
+    }
+});
+
+autoUpdater.on('update-downloaded', (info) => {
+    console.log('✅ Update downloaded, will install on quit');
+    if (mainWindow) {
+        mainWindow.webContents.send('app-update-downloaded', info);
+    }
+});
+
+// IPC handlers for auto-updater
+ipcMain.handle('check-for-app-updates', async () => {
+    try {
+        const result = await autoUpdater.checkForUpdates();
+        return { success: true, updateInfo: result?.updateInfo };
+    } catch (error) {
+        console.error('Error checking for updates:', error);
+        return { success: false, error: error.message };
+    }
+});
+
+ipcMain.handle('download-app-update', async () => {
+    try {
+        await autoUpdater.downloadUpdate();
+        return { success: true };
+    } catch (error) {
+        console.error('Error downloading update:', error);
+        return { success: false, error: error.message };
+    }
+});
+
+ipcMain.handle('install-app-update', () => {
+    autoUpdater.quitAndInstall(false, true);
+});
+
+
+// App lifecycle
+app.whenReady().then(async () => {
+    await ensureDocumentsFolder();
+    createWindow();
+
+    // Check for app updates after window is ready (in production only)
+    if (process.env.NODE_ENV !== 'development') {
+        setTimeout(() => {
+            autoUpdater.checkForUpdates().catch(err => {
+                console.log('Auto-update check failed:', err.message);
+            });
+        }, 3000); // Wait 3 seconds after startup
+    }
+
+    app.on('activate', () => {
+        if (BrowserWindow.getAllWindows().length === 0) {
+            createWindow();
+        }
+    });
+});
+
+app.on('window-all-closed', () => {
+    if (process.platform !== 'darwin') {
+        app.quit();
+    }
+});
