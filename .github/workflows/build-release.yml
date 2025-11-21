@@ -33,11 +33,18 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           CSC_IDENTITY_AUTO_DISCOVERY: false
-        run: npm run electron:build:win -- --publish always
+        run: |
+          npm run build
+          npx electron-builder --win --publish always
       
-      - name: Upload artifacts
-        uses: actions/upload-artifact@v4
+      - name: Create GitHub Release
+        if: success()
+        uses: softprops/action-gh-release@v1
         with:
-          name: release-files
-          path: release/*.exe
-          if-no-files-found: error
+          files: |
+            release/*.exe
+            release/*.yml
+          draft: false
+          prerelease: false
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
