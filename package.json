@@ -1,7 +1,7 @@
 {
   "name": "tarkov-tracker",
   "private": true,
-  "version": "1.0.0",
+  "version": "1.0.1",
   "main": "electron/main.js",
   "description": "TarkovTracker - Kappa Item Tracker for Escape from Tarkov",
   "author": "TarkovTracker",
@@ -21,7 +21,7 @@
       "output": "release"
     },
     "files": [
-      "dist/**/*",
+      "build/**/*",
       "electron/**/*",
       "assets/**/*"
     ],
@@ -29,7 +29,9 @@
       "target": [
         "nsis"
       ],
-      "icon": "assets/icon.png"
+      "icon": "assets/icon.png",
+      "verifyUpdateCodeSignature": false,
+      "forceCodeSigning": false
     },
     "nsis": {
       "oneClick": false,
