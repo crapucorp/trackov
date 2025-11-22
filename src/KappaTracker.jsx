@@ -27,11 +27,19 @@ const KappaTracker = () => {
     useEffect(() => {
         const processData = async () => {
             try {
-                // Check for updates on startup
-                const updateCheck = await checkForUpdates();
-                if (updateCheck.available) {
-                    setUpdateInfo(updateCheck);
-                    setShowUpdateNotification(true);
+                // Check if we just applied an update (to prevent infinite reload loop)
+                const justAppliedUpdate = localStorage.getItem('tarkovtracker_update_just_applied');
+                if (justAppliedUpdate) {
+                    // Clear the flag and skip update check this time
+                    localStorage.removeItem('tarkovtracker_update_just_applied');
+                    console.log('⏭️ Skipping update check - update was just applied');
+                } else {
+                    // Check for updates on startup
+                    const updateCheck = await checkForUpdates();
+                    if (updateCheck.available) {
+                        setUpdateInfo(updateCheck);
+                        setShowUpdateNotification(true);
+                    }
                 }
 
                 // Load user progress from file system (or localStorage as fallback)
@@ -197,6 +205,8 @@ const KappaTracker = () => {
                     updateInfo={updateInfo}
                     onClose={() => setShowUpdateNotification(false)}
                     onUpdateApplied={() => {
+                        // Set flag to prevent update check on next load
+                        localStorage.setItem('tarkovtracker_update_just_applied', 'true');
                         // Reload the page to apply update
                         window.location.reload();
                     }}

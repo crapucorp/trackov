@@ -4,6 +4,10 @@ const path = require('path');
 const fs = require('fs').promises;
 const os = require('os');
 
+// Smart Scan imports
+const { createOverlayWindow, getOverlayWindow } = require('./overlayWindow');
+const { registerScanHandlers, setOverlayWindow } = require('./ipc-handlers');
+
 // Path to user's Documents folder
 const DOCUMENTS_PATH = path.join(os.homedir(), 'Documents', 'TarkovTracker');
 const PROGRESS_FILE = path.join(DOCUMENTS_PATH, 'progress.json');
@@ -245,6 +249,14 @@ ipcMain.handle('install-app-update', () => {
 app.whenReady().then(async () => {
     await ensureDocumentsFolder();
     createWindow();
+
+    // Create overlay window for Smart Scan feature
+    const overlay = createOverlayWindow();
+    setOverlayWindow(overlay);
+
+    // Register scan IPC handlers
+    registerScanHandlers();
+    console.log('✅ Smart Scan feature initialized');
 
     // Check for app updates after window is ready (in production only)
     if (process.env.NODE_ENV !== 'development') {

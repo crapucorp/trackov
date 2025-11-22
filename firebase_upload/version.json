@@ -1,9 +1,11 @@
 {
-  "version": "1.0.2",
-  "releaseDate": "2025-11-21",
-  "files": {
-    "tasks": "data/tasks_1.0.0.json",
-    "hideout": "data/hideout_1.0.0.json"
-  },
-  "changelog": "TEST v1.0.2 - Affichage version dans le titre !"
+  "version": "1.0.3",
+  "releaseDate": "2025-11-22",
+  "features": [
+    "🐛 Correction du bug de sauvegarde des données",
+    "✅ Les modifications persistent maintenant entre les sessions",
+    "💾 Auto-save automatique après chaque modification"
+  ],
+  "downloadUrl": "https://github.com/crapucorp/trackov/releases/tag/v1.0.3",
+  "changelog": "Fix: Persistence bug where data was lost on app restart. Added useRef to prevent save during initial load."
 }

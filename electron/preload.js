@@ -29,5 +29,17 @@ contextBridge.exposeInMainWorld('electron', {
         onError: (callback) => ipcRenderer.on('app-update-error', (event, error) => callback(error)),
         onDownloadProgress: (callback) => ipcRenderer.on('app-update-download-progress', (event, progress) => callback(progress)),
         onDownloaded: (callback) => ipcRenderer.on('app-update-downloaded', (event, info) => callback(info)),
+    },
+
+    // Smart Scan feature
+    scan: {
+        start: () => ipcRenderer.invoke('scan:start'),
+        toggleOverlay: (show) => ipcRenderer.invoke('overlay:toggle', show),
+        clearOverlay: () => ipcRenderer.invoke('overlay:clear'),
     }
+});
+
+// Separate API for overlay window (simplified)
+contextBridge.exposeInMainWorld('electronAPI', {
+    onScanResults: (callback) => ipcRenderer.on('scan:results', (event, matches) => callback(matches))
 });
