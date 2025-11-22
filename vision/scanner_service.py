@@ -19,7 +19,7 @@ class FastScanner:
     def __init__(self, templates_dir: str = "../assets/kappa-icons"):
         self.templates_dir = Path(__file__).parent / templates_dir
         self.templates: Dict[str, Dict] = {}
-        self.confidence_threshold = 0.65  # Lower threshold for better detection
+        self.confidence_threshold = 0.75  # Higher threshold to avoid false positives
         
     def load_templates(self) -> int:
         """Load and process all template images"""
