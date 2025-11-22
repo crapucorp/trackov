@@ -41,5 +41,6 @@ contextBridge.exposeInMainWorld('electron', {
 
 // Separate API for overlay window (simplified)
 contextBridge.exposeInMainWorld('electronAPI', {
+    onScanStarted: (callback) => ipcRenderer.on('scan:started', callback),
     onScanResults: (callback) => ipcRenderer.on('scan:results', (event, matches) => callback(matches))
 });

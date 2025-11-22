@@ -3,6 +3,7 @@ const { autoUpdater } = require('electron-updater');
 const path = require('path');
 const fs = require('fs').promises;
 const os = require('os');
+const { spawn } = require('child_process');
 
 // Smart Scan imports
 const { createOverlayWindow, getOverlayWindow } = require('./overlayWindow');
@@ -13,6 +14,7 @@ const DOCUMENTS_PATH = path.join(os.homedir(), 'Documents', 'TarkovTracker');
 const PROGRESS_FILE = path.join(DOCUMENTS_PATH, 'progress.json');
 
 let mainWindow;
+let scannerProcess = null; // Python scanner service process
 
 // Create the main application window
 function createWindow() {
@@ -245,6 +247,87 @@ ipcMain.handle('install-app-update', () => {
 });
 
 
+// ============================================
+// SCANNER SERVICE MANAGEMENT
+// ============================================
+
+/**
+ * Start the Python scanner service
+ */
+async function startScannerService() {
+    const pythonScript = path.join(__dirname, '../vision/api_server.py');
+    const pythonExe = process.platform === 'win32' ? 'python' : 'python3';
+
+    console.log('🚀 Starting Python scanner service...');
+    console.log(`   Script: ${pythonScript}`);
+
+    try {
+        scannerProcess = spawn(pythonExe, [pythonScript], {
+            cwd: path.join(__dirname, '../vision'),
+            stdio: ['ignore', 'pipe', 'pipe']
+        });
+
+        // Log output
+        scannerProcess.stdout.on('data', (data) => {
+            console.log(`[Scanner] ${data.toString().trim()}`);
+        });
+
+        scannerProcess.stderr.on('data', (data) => {
+            console.error(`[Scanner ERROR] ${data.toString().trim()}`);
+        });
+
+        scannerProcess.on('error', (error) => {
+            console.error('❌ Failed to start scanner service:', error);
+            scannerProcess = null;
+        });
+
+        scannerProcess.on('exit', (code) => {
+            console.log(`⚠️ Scanner service exited with code ${code}`);
+            scannerProcess = null;
+        });
+
+        // Wait for service to be ready
+        await waitForService();
+        console.log('✅ Scanner service ready');
+
+    } catch (error) {
+        console.error('❌ Error starting scanner service:', error);
+    }
+}
+
+/**
+ * Wait for scanner service to be available
+ */
+async function waitForService(maxRetries = 10) {
+    const SCANNER_URL = 'http://127.0.0.1:8765';
+
+    for (let i = 0; i < maxRetries; i++) {
+        try {
+            const response = await fetch(SCANNER_URL);
+            if (response.ok) {
+                return true;
+            }
+        } catch (e) {
+            // Service not ready yet
+        }
+        await new Promise(resolve => setTimeout(resolve, 500));
+    }
+
+    throw new Error('Scanner service failed to start');
+}
+
+/**
+ * Stop the Python scanner service
+ */
+function stopScannerService() {
+    if (scannerProcess) {
+        console.log('🛑 Stopping scanner service...');
+        scannerProcess.kill();
+        scannerProcess = null;
+    }
+}
+
+
 // App lifecycle
 app.whenReady().then(async () => {
     await ensureDocumentsFolder();
@@ -254,9 +337,12 @@ app.whenReady().then(async () => {
     const overlay = createOverlayWindow();
     setOverlayWindow(overlay);
 
-    // Register scan IPC handlers
-    registerScanHandlers();
+    // Register scan IPC handlers WITH the windows
+    registerScanHandlers(mainWindow, overlay);
     console.log('✅ Smart Scan feature initialized');
+
+    // Start Python scanner service
+    await startScannerService();
 
     // Check for app updates after window is ready (in production only)
     if (process.env.NODE_ENV !== 'development') {
@@ -275,7 +361,12 @@ app.whenReady().then(async () => {
 });
 
 app.on('window-all-closed', () => {
+    stopScannerService(); // Clean up scanner service
     if (process.platform !== 'darwin') {
         app.quit();
     }
+});
+
+app.on('before-quit', () => {
+    stopScannerService(); // Ensure cleanup on quit
 });

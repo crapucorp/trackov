@@ -8,24 +8,26 @@ const ScanButton = ({ onScanComplete }) => {
     const handleScan = async () => {
         if (scanning) return;
 
+        // Immediate visual feedback
         setScanning(true);
+        console.log('🚀 Scan initiated...');
 
         try {
             // Trigger scan via Electron IPC
             const result = await window.electron.scan.start();
 
             if (result.success) {
-                console.log(`✅ Scan complete: ${result.matches.length} items found`);
+                console.log(`✅ Scan complete: ${result.matches.length} items found in ${result.scanTime}ms`);
 
                 // Show overlay
                 await window.electron.scan.toggleOverlay(true);
                 setOverlayVisible(true);
 
-                // Auto-hide overlay after 10 seconds
+                // Auto-hide overlay after 15 seconds
                 setTimeout(async () => {
                     await window.electron.scan.toggleOverlay(false);
                     setOverlayVisible(false);
-                }, 10000);
+                }, 15000);
 
                 if (onScanComplete) {
                     onScanComplete(result.matches);

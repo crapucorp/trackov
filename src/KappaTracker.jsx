@@ -3,6 +3,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import DataCard from './DataCard';
 import UpdateNotification from './components/UpdateNotification';
 import AppUpdater from './components/AppUpdater';
+import ScanButton from './components/ScanButton';
 import { loadProgress, saveProgress } from './services/fileSystem';
 import { checkForUpdates, loadAppData } from './services/autoUpdate';
 
@@ -224,6 +225,9 @@ const KappaTracker = () => {
                             TERRAGROUP <span className="text-cyan-500">OS</span>
                         </h1>
                     </div>
+
+                    {/* Smart Scan Button */}
+                    <ScanButton />
 
                     {/* Tabs */}
                     <nav className="hidden md:flex items-center gap-1">
