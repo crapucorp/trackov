@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import DataCard from './DataCard';
 import UpdateNotification from './components/UpdateNotification';
@@ -20,6 +20,9 @@ const KappaTracker = () => {
     const [searchTerm, setSearchTerm] = useState('');
     const [updateInfo, setUpdateInfo] = useState(null);
     const [showUpdateNotification, setShowUpdateNotification] = useState(false);
+
+    // Track if we're still loading initial data (to avoid saving empty state)
+    const isInitialLoad = useRef(true);
 
     useEffect(() => {
         const processData = async () => {
@@ -78,6 +81,8 @@ const KappaTracker = () => {
                 console.error('Data processing error:', err);
             } finally {
                 setLoading(false);
+                // Mark initial load as complete - now saves will work
+                isInitialLoad.current = false;
             }
         };
 
@@ -99,10 +104,17 @@ const KappaTracker = () => {
     };
 
     useEffect(() => {
+        // Don't save during initial load to avoid overwriting loaded data
+        if (isInitialLoad.current) {
+            return;
+        }
+
         // Save to file system whenever itemCounts changes
         const save = async () => {
             const result = await saveProgress(itemCounts);
-            if (!result.success) {
+            if (result.success) {
+                console.log('💾 Progress saved automatically');
+            } else {
                 console.error('Failed to save progress:', result.error);
             }
         };
