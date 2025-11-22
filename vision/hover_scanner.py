@@ -39,8 +39,13 @@ class HoverScanner:
         # Load items database
         self.load_items()
         
-        # Tesseract config
-        pytesseract.pytesseract.tesseract_cmd = r'C:\Program Files\Tesseract-OCR\tesseract.exe'
+        # Tesseract config - use absolute path
+        import platform
+        if platform.system() == 'Windows':
+            pytesseract.pytesseract.tesseract_cmd = r'C:\Program Files\Tesseract-OCR\tesseract.exe'
+        else:
+            # Linux/Mac usually have it in PATH
+            pytesseract.pytesseract.tesseract_cmd = 'tesseract'
         
     def load_items(self):
         """Load Tarkov items database for fuzzy matching"""
