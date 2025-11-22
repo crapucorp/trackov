@@ -6,10 +6,11 @@ Provides HTTP endpoint for Electron app to trigger scans
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
-from typing import List, Dict
+from typing import List, Dict, Optional
 import uvicorn
 import logging
 from scanner_service import FastScanner
+from hover_scanner import HoverScanner
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -27,6 +28,9 @@ app.add_middleware(
 
 # Initialize scanner
 scanner = FastScanner()
+
+# Initialize hover scanner (for real-time mouse scanning)
+hover_scanner = HoverScanner()
 
 
 class ScanResponse(BaseModel):
@@ -82,6 +86,38 @@ async def list_templates():
     return {
         "count": len(scanner.templates),
         "templates": list(scanner.templates.keys())
+    }
+
+
+@app.post("/hover/start")
+async def start_hover_scan():
+    """Start hover scanning mode"""
+    try:
+        hover_scanner.start()
+        return {"success": True, "message": "Hover scanning started"}
+    except Exception as e:
+        logger.error(f"❌ Hover start error: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.post("/hover/stop")
+async def stop_hover_scan():
+    """Stop hover scanning mode"""
+    try:
+        hover_scanner.stop()
+        return {"success": True, "message": "Hover scanning stopped"}
+    except Exception as e:
+        logger.error(f"❌ Hover stop error: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.get("/hover/status")
+async def get_hover_status():
+    """Get current hover scan result"""
+    result = hover_scanner.get_result()
+    return {
+        "isScanning": hover_scanner.is_running,
+        "result": result
     }
 
 

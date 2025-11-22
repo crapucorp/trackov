@@ -4,6 +4,7 @@ import DataCard from './DataCard';
 import UpdateNotification from './components/UpdateNotification';
 import AppUpdater from './components/AppUpdater';
 import ScanButton from './components/ScanButton';
+import HoverScanButton from './components/HoverScanButton';
 import { loadProgress, saveProgress } from './services/fileSystem';
 import { checkForUpdates, loadAppData } from './services/autoUpdate';
 
@@ -226,8 +227,11 @@ const KappaTracker = () => {
                         </h1>
                     </div>
 
-                    {/* Smart Scan Button */}
-                    <ScanButton />
+                    {/* Smart Scan Buttons */}
+                    <div className="flex items-center gap-2">
+                        <ScanButton />
+                        <HoverScanButton />
+                    </div>
 
                     {/* Tabs */}
                     <nav className="hidden md:flex items-center gap-1">
