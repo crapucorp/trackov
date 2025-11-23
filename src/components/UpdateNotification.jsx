@@ -87,7 +87,10 @@ const UpdateNotification = ({ updateInfo, onClose, onUpdateApplied }) => {
                         {/* Changelog */}
                         {updateInfo.changelog && !downloadComplete && (
                             <div className="mb-4 p-3 bg-cyan-900/10 border border-cyan-900/30">
-                                <p className="text-xs text-cyan-300 font-mono">{updateInfo.changelog}</p>
+                                <div
+                                    className="text-xs text-cyan-300 font-mono"
+                                    dangerouslySetInnerHTML={{ __html: updateInfo.changelog }}
+                                />
                             </div>
                         )}
 
