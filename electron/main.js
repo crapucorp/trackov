@@ -251,9 +251,51 @@ ipcMain.handle('install-app-update', () => {
 // ============================================
 
 /**
+ * Check if Python is installed
+ */
+async function checkPythonInstalled() {
+    const pythonExe = process.platform === 'win32' ? 'python' : 'python3';
+
+    return new Promise((resolve) => {
+        const { exec } = require('child_process');
+        exec(`${pythonExe} --version`, (error) => {
+            if (error) {
+                console.error('❌ Python not found in PATH');
+                resolve(false);
+            } else {
+                console.log('✅ Python found');
+                resolve(true);
+            }
+        });
+    });
+}
+
+/**
  * Start the Python scanner service
  */
 async function startScannerService() {
+    // Check if Python is installed first
+    const pythonInstalled = await checkPythonInstalled();
+
+    if (!pythonInstalled) {
+        console.error('');
+        console.error('═══════════════════════════════════════════════════');
+        console.error('  ⚠️  PYTHON NOT FOUND');
+        console.error('═══════════════════════════════════════════════════');
+        console.error('');
+        console.error('The scanner feature requires Python 3.9+');
+        console.error('');
+        console.error('Please install Python from:');
+        console.error('  https://www.python.org/downloads/');
+        console.error('');
+        console.error('Make sure to check "Add Python to PATH" during install!');
+        console.error('');
+        console.error('After installation, restart this application.');
+        console.error('═══════════════════════════════════════════════════');
+        console.error('');
+        return;
+    }
+
     const pythonScript = path.join(__dirname, '../vision/api_server.py');
     const pythonExe = process.platform === 'win32' ? 'python' : 'python3';
 
@@ -273,11 +315,29 @@ async function startScannerService() {
         });
 
         scannerProcess.stderr.on('data', (data) => {
-            console.error(`[Scanner ERROR] ${data.toString().trim()}`);
+            const errorMsg = data.toString().trim();
+            console.error(`[Scanner ERROR] ${errorMsg}`);
+
+            // Detect missing dependencies
+            if (errorMsg.includes('ModuleNotFoundError') || errorMsg.includes('No module named')) {
+                console.error('');
+                console.error('═══════════════════════════════════════════════════');
+                console.error('  ⚠️  MISSING PYTHON DEPENDENCIES');
+                console.error('═══════════════════════════════════════════════════');
+                console.error('');
+                console.error('Please install required Python packages:');
+                console.error('');
+                console.error('1. Open terminal/command prompt');
+                console.error('2. Navigate to the vision folder');
+                console.error('3. Run: pip install -r requirements.txt');
+                console.error('');
+                console.error('═══════════════════════════════════════════════════');
+                console.error('');
+            }
         });
 
         scannerProcess.on('error', (error) => {
-            console.error('❌ Failed to start scanner service:', error);
+            console.error('❌ Failed to start scanner service:', error.message);
             scannerProcess = null;
         });
 
