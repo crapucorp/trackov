@@ -13,8 +13,8 @@ import json
 
 class IconScanner:
     def __init__(self):
-        # Load golden rooster template
-        template_path = Path(__file__).parent.parent / "assets" / "item-icons" / "golden_rooster.webp"
+        # Load golden rooster template (exact reference from user)
+        template_path = Path(__file__).parent.parent / "assets" / "item-icons" / "golden_rooster_ref.png"
         self.template = cv2.imread(str(template_path))
         
         if self.template is None:
@@ -131,8 +131,8 @@ class IconScanner:
         """Scan for icon at specific cursor position (called from Electron)"""
         print(f"🔍 Scanning at position ({x}, {y})")
         
-        # Capture screen at position
-        img = self.capture_screen_at_position(x, y, size=150)
+        # Capture larger area (200x200) to ensure we get the full icon
+        img = self.capture_screen_at_position(x, y, size=200)
         
         # Save debug image
         debug_dir = Path(__file__).parent.parent / "debug_images"
@@ -140,62 +140,32 @@ class IconScanner:
         timestamp = int(time.time() * 1000)
         cv2.imwrite(str(debug_dir / f"icon_scan_{timestamp}.png"), img)
         
-        # Extract icon from gray background
-        icon_img = self.extract_icon_from_gray_background(img)
-        cv2.imwrite(str(debug_dir / f"icon_extracted_{timestamp}.png"), icon_img)
-        
         # Convert to grayscale
-        img_gray = cv2.cvtColor(icon_img, cv2.COLOR_BGR2GRAY)
+        img_gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
         
-        # Template matching with multiple scales
-        best_match = None
-        best_val = 0
-        best_scale = 1.0
+        # Template matching - search for template in the captured image
+        result = cv2.matchTemplate(img_gray, self.template_gray, cv2.TM_CCOEFF_NORMED)
+        min_val, max_val, min_loc, max_loc = cv2.minMaxLoc(result)
         
-        # Try different scales
-        for scale in [0.5, 0.75, 1.0, 1.25, 1.5, 2.0]:
-            # Resize template
-            scaled_template = cv2.resize(
-                self.template_gray,
-                None,
-                fx=scale,
-                fy=scale,
-                interpolation=cv2.INTER_CUBIC
-            )
-            
-            # Skip if template is larger than image
-            if scaled_template.shape[0] > img_gray.shape[0] or scaled_template.shape[1] > img_gray.shape[1]:
-                continue
-            
-            # Template matching
-            result = cv2.matchTemplate(img_gray, scaled_template, cv2.TM_CCOEFF_NORMED)
-            min_val, max_val, min_loc, max_loc = cv2.minMaxLoc(result)
-            
-            if max_val > best_val:
-                best_val = max_val
-                best_match = max_loc
-                best_scale = scale
+        print(f"   📊 Match confidence: {max_val * 100:.1f}%")
+        print(f"   📍 Match location: {max_loc}")
         
-        # Threshold 70% for good precision
-        if best_val >= 0.70:
+        # Threshold 70% for good match
+        if max_val >= 0.70:
             print(f"✅ FOUND Golden Rooster!")
-            print(f"   Confidence: {best_val * 100:.1f}%")
-            print(f"   Scale: {best_scale}x")
+            print(f"   Confidence: {max_val * 100:.1f}%")
             print(f"   Price: {self.rooster_data['avg24hPrice']}₽")
             
             # Draw match on debug image
-            scaled_w = int(self.template_w * best_scale)
-            scaled_h = int(self.template_h * best_scale)
-            cv2.rectangle(icon_img, best_match, (best_match[0] + scaled_w, best_match[1] + scaled_h), (0, 255, 0), 2)
-            cv2.imwrite(str(debug_dir / f"icon_match_{timestamp}.png"), icon_img)
+            cv2.rectangle(img, max_loc, (max_loc[0] + self.template_w, max_loc[1] + self.template_h), (0, 255, 0), 2)
+            cv2.imwrite(str(debug_dir / f"icon_match_{timestamp}.png"), img)
             
             return {
                 **self.rooster_data,
-                'confidence': int(best_val * 100),
-                'scale': best_scale
+                'confidence': int(max_val * 100)
             }
         else:
-            print(f"❌ No match found (best: {best_val * 100:.1f}%)")
+            print(f"❌ No match found (best: {max_val * 100:.1f}%)")
             return None
     
     def scan_for_icon(self):
