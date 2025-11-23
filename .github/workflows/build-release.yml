@@ -29,12 +29,38 @@ jobs:
       - name: Build application
         run: npm run build
       
+      - name: Setup Python Embeddable
+        run: |
+          # Download Python Embeddable
+          Write-Host "📥 Downloading Python 3.11.9 Embeddable..."
+          Invoke-WebRequest -Uri "https://www.python.org/ftp/python/3.11.9/python-3.11.9-embed-amd64.zip" -OutFile "python-embed.zip"
+          
+          # Extract
+          Write-Host "📦 Extracting Python..."
+          New-Item -ItemType Directory -Force -Path "resources/python-embed"
+          Expand-Archive -Path "python-embed.zip" -DestinationPath "resources/python-embed" -Force
+          Remove-Item "python-embed.zip"
+          
+          # Enable site-packages
+          Write-Host "⚙️ Configuring Python..."
+          Add-Content -Path "resources/python-embed/python311._pth" -Value "`nLib/site-packages`nimport site"
+          
+          # Install pip
+          Write-Host "📥 Installing pip..."
+          Invoke-WebRequest -Uri "https://bootstrap.pypa.io/get-pip.py" -OutFile "resources/python-embed/get-pip.py"
+          & "resources/python-embed/python.exe" "resources/python-embed/get-pip.py"
+          
+          # Install dependencies
+          Write-Host "📦 Installing Python dependencies..."
+          & "resources/python-embed/python.exe" -m pip install --target="resources/python-embed/Lib/site-packages" -r vision/requirements.txt
+          
+          Write-Host "✅ Python bundled successfully"
+      
       - name: Build Electron app and publish
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           CSC_IDENTITY_AUTO_DISCOVERY: false
         run: |
-          npm run build
           npx electron-builder --win --publish always
       
       - name: Create GitHub Release
