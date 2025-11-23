@@ -119,9 +119,9 @@ class TooltipScanner:
             item_data = self.item_names_dict[best_match[0]]
             print(f"   ✅ Matched: {item_data['name']} ({best_match[1]}%)")
             
-            # Fetch real-time prices from tarkov.dev API
+            # Fetch real-time prices from tarkov.dev API using item ID
             from tarkov_api import get_item_prices
-            prices = get_item_prices(item_data['name'])
+            prices = get_item_prices(item_data['id'], item_data['name'])
             
             # Build result with API prices if available
             result = {

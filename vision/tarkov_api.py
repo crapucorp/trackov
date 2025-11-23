@@ -9,28 +9,30 @@ from typing import Optional, Dict
 
 TARKOV_DEV_API = "https://api.tarkov.dev/graphql"
 
-# Cache for API results (item_name -> {prices, timestamp})
+# Cache for API results (item_id -> {prices, timestamp})
 _price_cache = {}
-CACHE_TTL = 300  # 5 minutes cache
+CACHE_TTL = 300  # 5 minutes cache (matches API update frequency)
 
-def get_item_prices(item_name: str) -> Optional[Dict]:
+def get_item_prices(item_id: str, item_name: str = None) -> Optional[Dict]:
     """
     Fetch item prices from tarkov.dev API with caching
+    Uses item ID for fast, accurate lookup
     Returns dict with fleaMarket, therapist, and mechanic prices
     """
     
     # Check cache first
-    if item_name in _price_cache:
-        cached = _price_cache[item_name]
+    if item_id in _price_cache:
+        cached = _price_cache[item_id]
         age = time.time() - cached['timestamp']
         if age < CACHE_TTL:
             print(f"   💾 Using cached prices ({int(age)}s old)")
             return cached['prices']
     
-    # GraphQL query to search items (more flexible than exact name match)
+    # GraphQL query using item ID (faster and more accurate)
     query = """
-    query SearchItems($name: String!) {
-        items(name: $name) {
+    query GetItemById($id: ID!) {
+        item(id: $id) {
+            id
             name
             avg24hPrice
             sellFor {
@@ -48,7 +50,7 @@ def get_item_prices(item_name: str) -> Optional[Dict]:
             TARKOV_DEV_API,
             json={
                 "query": query,
-                "variables": {"name": item_name}
+                "variables": {"id": item_id}
             },
             timeout=5
         )
@@ -59,12 +61,11 @@ def get_item_prices(item_name: str) -> Optional[Dict]:
         
         data = response.json()
         
-        if not data.get('data') or not data['data'].get('items') or len(data['data']['items']) == 0:
-            print(f"   ⚠️ No items found in API for '{item_name}'")
+        if not data.get('data') or not data['data'].get('item'):
+            print(f"   ⚠️ Item not found in API (ID: {item_id})")
             return None
         
-        # Take first result (best match)
-        item = data['data']['items'][0]
+        item = data['data']['item']
         
         # Extract prices
         prices = {
@@ -89,7 +90,7 @@ def get_item_prices(item_name: str) -> Optional[Dict]:
         print(f"      Mechanic: {prices['mechanic']}₽")
         
         # Cache the result
-        _price_cache[item_name] = {
+        _price_cache[item_id] = {
             'prices': prices,
             'timestamp': time.time()
         }
