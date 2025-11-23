@@ -1,18 +1,3 @@
-const { app, BrowserWindow, ipcMain, globalShortcut, screen } = require('electron');
-const { autoUpdater } = require('electron-updater');
-const path = require('path');
-const fs = require('fs').promises;
-const os = require('os');
-const { spawn } = require('child_process');
-
-// Smart Scan imports
-const { createOverlayWindow, getOverlayWindow } = require('./overlayWindow');
-const { registerScanHandlers, setOverlayWindow } = require('./ipc-handlers');
-
-// Path to user's Documents folder
-const DOCUMENTS_PATH = path.join(os.homedir(), 'Documents', 'TarkovTracker');
-const PROGRESS_FILE = path.join(DOCUMENTS_PATH, 'progress.json');
-
 let mainWindow;
 let scannerProcess = null; // Python scanner service process
 let popupWindow = null; // Popup overlay for scan results
