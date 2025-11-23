@@ -12,22 +12,31 @@
         }
 
         body {
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            font-family: 'Consolas', 'Monaco', 'Courier New', monospace;
             background: transparent;
             overflow: hidden;
             -webkit-app-region: no-drag;
+            color: #ecfeff;
+            /* cyan-50 */
         }
 
         #popup {
-            background: rgba(20, 20, 20, 0.95);
-            border: 1px solid rgba(255, 255, 255, 0.1);
-            border-radius: 8px;
+            /* Glass Panel Blue style from index.css */
+            background: rgba(12, 18, 25, 0.90);
+            backdrop-filter: blur(12px);
+            border: 1px solid rgba(6, 182, 212, 0.3);
+            /* cyan-500/30 */
+            box-shadow: 0 0 15px rgba(6, 182, 212, 0.15);
+
+            border-radius: 4px;
+            /* More angular/technical */
             padding: 12px 16px;
-            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.5);
-            min-width: 250px;
+            min-width: 260px;
             opacity: 0;
             transform: translateY(-5px);
-            transition: opacity 0.2s, transform 0.2s;
+            transition: opacity 0.2s ease-out, transform 0.2s ease-out;
+            position: relative;
+            overflow: hidden;
         }
 
         #popup.show {
@@ -35,12 +44,38 @@
             transform: translateY(0);
         }
 
-        #item-name {
-            color: #ffffff;
-            font-size: 14px;
-            font-weight: 600;
+        /* Scanline effect */
+        .scanline {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(to bottom, rgba(255, 255, 255, 0), rgba(255, 255, 255, 0) 50%, rgba(0, 0, 0, 0.2) 50%, rgba(0, 0, 0, 0.2));
+            background-size: 100% 4px;
+            pointer-events: none;
+            z-index: 10;
+            opacity: 0.3;
+        }
+
+        /* Header decoration */
+        .header-line {
+            height: 2px;
+            background: linear-gradient(90deg, #06b6d4, transparent);
             margin-bottom: 8px;
+            width: 100%;
+        }
+
+        #item-name {
+            color: #22d3ee;
+            /* cyan-400 */
+            font-size: 14px;
+            font-weight: 700;
+            margin-bottom: 4px;
             white-space: nowrap;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            text-shadow: 0 0 5px rgba(34, 211, 238, 0.3);
         }
 
         .price-row {
@@ -49,39 +84,97 @@
             align-items: center;
             margin-bottom: 4px;
             font-size: 12px;
+            border-bottom: 1px solid rgba(6, 182, 212, 0.1);
+            padding-bottom: 2px;
+        }
+
+        .price-row:last-child {
+            border-bottom: none;
         }
 
         .price-label {
             color: #94a3b8;
+            /* slate-400 */
+            font-size: 11px;
         }
 
         .price-value {
-            color: #4ade80;
+            color: #ecfeff;
+            /* cyan-50 */
             font-weight: 600;
+            font-family: 'Consolas', monospace;
+        }
+
+        .price-value.high {
+            color: #4ade80;
+            /* green-400 */
         }
 
         #item-confidence {
             color: #64748b;
-            font-size: 11px;
-            margin-top: 6px;
+            font-size: 10px;
+            margin-top: 8px;
             text-align: right;
+            opacity: 0.7;
+        }
+
+        /* Corner accents */
+        .corner {
+            position: absolute;
+            width: 6px;
+            height: 6px;
+            border-color: #06b6d4;
+            border-style: solid;
+            transition: all 0.3s ease;
+        }
+
+        .top-left {
+            top: 0;
+            left: 0;
+            border-width: 2px 0 0 2px;
+        }
+
+        .top-right {
+            top: 0;
+            right: 0;
+            border-width: 2px 2px 0 0;
+        }
+
+        .bottom-left {
+            bottom: 0;
+            left: 0;
+            border-width: 0 0 2px 2px;
+        }
+
+        .bottom-right {
+            bottom: 0;
+            right: 0;
+            border-width: 0 2px 2px 0;
         }
     </style>
 </head>
 
 <body>
     <div id="popup">
+        <div class="scanline"></div>
+        <div class="corner top-left"></div>
+        <div class="corner top-right"></div>
+        <div class="corner bottom-left"></div>
+        <div class="corner bottom-right"></div>
+
         <div id="item-name"></div>
+        <div class="header-line"></div>
+
         <div class="price-row">
-            <span class="price-label">Flea Min:</span>
+            <span class="price-label">FLEA MARKET</span>
             <span class="price-value" id="flea-price"></span>
         </div>
         <div class="price-row">
-            <span class="price-label">Therapist:</span>
+            <span class="price-label">THERAPIST</span>
             <span class="price-value" id="therapist-price"></span>
         </div>
         <div class="price-row">
-            <span class="price-label">Mechanic:</span>
+            <span class="price-label">MECHANIC</span>
             <span class="price-value" id="mechanic-price"></span>
         </div>
         <div id="item-confidence"></div>
@@ -105,7 +198,9 @@
 
             // Update content
             itemName.textContent = data.name;
-            fleaPrice.textContent = formatPrice(data.fleaMinPrice || data.avg24hPrice);
+
+            const flea = data.fleaMinPrice || data.avg24hPrice;
+            fleaPrice.textContent = formatPrice(flea);
 
             // Find Therapist and Mechanic prices from sellFor array
             const therapist = data.sellFor?.find(s => s.vendor?.name === 'Therapist');
@@ -113,12 +208,32 @@
 
             therapistPrice.textContent = formatPrice(therapist?.priceRUB);
             mechanicPrice.textContent = formatPrice(mechanic?.priceRUB);
-            itemConfidence.textContent = `${data.confidence}% confidence`;
+
+            // Highlight best price
+            fleaPrice.className = 'price-value';
+            therapistPrice.className = 'price-value';
+            mechanicPrice.className = 'price-value';
+
+            const prices = [
+                { el: fleaPrice, val: flea || 0 },
+                { el: therapistPrice, val: therapist?.priceRUB || 0 },
+                { el: mechanicPrice, val: mechanic?.priceRUB || 0 }
+            ];
+
+            // Find max price to highlight
+            const maxPrice = Math.max(...prices.map(p => p.val));
+            if (maxPrice > 0) {
+                prices.forEach(p => {
+                    if (p.val === maxPrice) p.el.classList.add('high');
+                });
+            }
+
+            itemConfidence.textContent = `CONFIDENCE: ${data.confidence}%`;
 
             // Show popup with animation
             setTimeout(() => popup.classList.add('show'), 10);
 
-            // Auto-hide after 5 seconds (increased for more info)
+            // Auto-hide after 5 seconds
             setTimeout(() => {
                 popup.classList.remove('show');
                 setTimeout(() => {

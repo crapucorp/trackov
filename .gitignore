@@ -32,3 +32,7 @@ vision/*.pyc
 
 # Debug
 debug_images/
+
+# Environment variables (API keys)
+.env
+vision/.env
