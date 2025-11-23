@@ -36,3 +36,37 @@ debug_images/
 # Environment variables (API keys)
 .env
 vision/.env
+
+# Internal Documentation
+CLEAN_INSTALL.ps1
+GITHUB_PUBLISH_GUIDE.md
+RELEASE_*.md
+SECURITY_GUIDE.md
+*_SUMMARY.md
+publish.ps1
+
+# Firebase data (versioned externally)
+firebase_upload/
+
+# Scripts (internal utilities)
+scripts/
+
+# Debug & Test files
+vision/debug_*.png
+vision/test_*.py
+vision/test_*.js
+vision/downloadIcons.js
+
+# Backups
+*-backup/
+*.backup
+*.bak
+
+# Build output (regenerated)
+build/
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
