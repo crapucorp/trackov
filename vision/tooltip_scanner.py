@@ -118,12 +118,38 @@ class TooltipScanner:
         if best_match and best_match[1] >= 50:  # Lower threshold to 50%
             item_data = self.item_names_dict[best_match[0]]
             print(f"   ✅ Matched: {item_data['name']} ({best_match[1]}%)")
-            print(f"   💰 Price: {item_data.get('avg24hPrice', 0)}₽")
-            return {
+            
+            # Fetch real-time prices from tarkov.dev API
+            from tarkov_api import get_item_prices
+            prices = get_item_prices(item_data['name'])
+            
+            # Build result with API prices if available
+            result = {
                 **item_data,
                 'confidence': best_match[1],
                 'ocr_text': text
             }
+            
+            if prices:
+                result['fleaMinPrice'] = prices['fleaMarket']
+                result['sellFor'] = []
+                
+                if prices['therapist']:
+                    result['sellFor'].append({
+                        'vendor': {'name': 'Therapist'},
+                        'priceRUB': prices['therapist']
+                    })
+                
+                if prices['mechanic']:
+                    result['sellFor'].append({
+                        'vendor': {'name': 'Mechanic'},
+                        'priceRUB': prices['mechanic']
+                    })
+            else:
+                # Fallback to static price
+                print(f"   💰 Fallback price: {item_data.get('avg24hPrice', 0)}₽")
+            
+            return result
         
         print(f"   ❌ No good match for '{text}' (best: {best_match[1]}%)")
         return None

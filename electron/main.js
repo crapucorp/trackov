@@ -15,6 +15,7 @@ const PROGRESS_FILE = path.join(DOCUMENTS_PATH, 'progress.json');
 
 let mainWindow;
 let scannerProcess = null; // Python scanner service process
+let popupWindow = null; // Popup overlay for scan results
 
 // Create the main application window
 function createWindow() {
@@ -318,6 +319,48 @@ async function waitForService(maxRetries = 10) {
 }
 
 /**
+ * Show popup overlay with scan result near cursor
+ */
+function showPopup(x, y, itemData) {
+    // Close existing popup if any
+    if (popupWindow && !popupWindow.isDestroyed()) {
+        popupWindow.close();
+    }
+
+    // Create popup window
+    popupWindow = new BrowserWindow({
+        width: 300,
+        height: 140,  // Increased for more prices
+        x: x + 15,  // Offset from cursor
+        y: y + 15,
+        frame: false,
+        transparent: true,
+        alwaysOnTop: true,
+        skipTaskbar: true,
+        resizable: false,
+        webPreferences: {
+            nodeIntegration: true,
+            contextIsolation: false
+        }
+    });
+
+    // Load popup HTML
+    popupWindow.loadFile(path.join(__dirname, 'overlay-popup.html'));
+
+    // Send data to popup
+    popupWindow.webContents.on('did-finish-load', () => {
+        popupWindow.webContents.send('show-result', itemData);
+    });
+
+    // Handle close request from popup
+    ipcMain.once('close-popup', () => {
+        if (popupWindow && !popupWindow.isDestroyed()) {
+            popupWindow.close();
+        }
+    });
+}
+
+/**
  * Stop the Python scanner service
  */
 function stopScannerService() {
@@ -364,9 +407,10 @@ app.whenReady().then(async () => {
             const result = await response.json();
             console.log('📊 Scan result:', result);
 
-            // TODO: Show result in overlay or notification
+            // Show result in overlay popup
             if (result.success && result.item) {
                 console.log(`✅ Found: ${result.item.name} - ${result.item.price}₽`);
+                showPopup(cursorPos.x, cursorPos.y, result.item);
             } else {
                 console.log('❌ No item found');
             }

@@ -147,7 +147,9 @@ async def scan_icon(request: ScanIconRequest):
                         "name": result['name'],
                         "shortName": result['shortName'],
                         "price": result.get('avg24hPrice', 0),
-                        "confidence": result.get('confidence', 0)
+                        "confidence": result.get('confidence', 0),
+                        "fleaMinPrice": result.get('fleaMinPrice'),
+                        "sellFor": result.get('sellFor', [])
                     }
                 }
         except Exception as e:
