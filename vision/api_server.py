@@ -20,6 +20,15 @@ except Exception as e:
     IconScanner = None
     ICON_SCANNER_AVAILABLE = False
 
+# Try to import tooltip scanner (optional - requires Tesseract)
+try:
+    from tooltip_scanner import TooltipScanner
+    TOOLTIP_SCANNER_AVAILABLE = True
+except Exception as e:
+    print(f"⚠️ Tooltip scanner not available: {e}")
+    TooltipScanner = None
+    TOOLTIP_SCANNER_AVAILABLE = False
+
 # Try to import hover scanner (optional - requires OpenCV + Tesseract)
 try:
     from hover_scanner import HoverScanner
@@ -48,6 +57,9 @@ scanner = FastScanner()
 
 # Initialize icon scanner (for real-time icon recognition) - only if available
 icon_scanner = IconScanner() if ICON_SCANNER_AVAILABLE else None
+
+# Initialize tooltip scanner (for text-based recognition) - only if available
+tooltip_scanner = TooltipScanner() if TOOLTIP_SCANNER_AVAILABLE else None
 
 # Initialize hover scanner (for OCR-based scanning) - only if available
 hover_scanner = HoverScanner() if HOVER_SCANNER_AVAILABLE else None
@@ -119,17 +131,41 @@ class ScanIconRequest(BaseModel):
 @app.post("/scan-icon")
 async def scan_icon(request: ScanIconRequest):
     """Scan for icon at given cursor position (triggered by Electron Shift+F5)"""
+    # Try tooltip scanner first (more reliable)
+    if TOOLTIP_SCANNER_AVAILABLE and tooltip_scanner is not None:
+        try:
+            logger.info(f"🔍 Scanning tooltip at position ({request.x}, {request.y})")
+            result = tooltip_scanner.scan_at_position(request.x, request.y)
+            
+            if result:
+                logger.info(f"✅ Found via tooltip: {result['name']} - {result.get('avg24hPrice', 0)}₽")
+                return {
+                    "success": True,
+                    "method": "tooltip",
+                    "item": {
+                        "id": result['id'],
+                        "name": result['name'],
+                        "shortName": result['shortName'],
+                        "price": result.get('avg24hPrice', 0),
+                        "confidence": result.get('confidence', 0)
+                    }
+                }
+        except Exception as e:
+            logger.warning(f"⚠️ Tooltip scan failed, falling back to icon matching: {e}")
+    
+    # Fallback to icon scanner
     if not ICON_SCANNER_AVAILABLE or icon_scanner is None:
-        raise HTTPException(status_code=503, detail="Icon scanner not available - OpenCV may not be installed")
+        raise HTTPException(status_code=503, detail="No scanner available - install OpenCV or Tesseract")
     
     try:
         logger.info(f"🔍 Scanning icon at position ({request.x}, {request.y})")
         result = icon_scanner.scan_at_position(request.x, request.y)
         
         if result:
-            logger.info(f"✅ Found: {result['name']} - {result.get('avg24hPrice', 0)}₽")
+            logger.info(f"✅ Found via icon: {result['name']} - {result.get('avg24hPrice', 0)}₽")
             return {
                 "success": True,
+                "method": "icon",
                 "item": {
                     "id": result['id'],
                     "name": result['name'],
@@ -142,7 +178,7 @@ async def scan_icon(request: ScanIconRequest):
             logger.info("❌ No item found")
             return {"success": False, "item": None}
     except Exception as e:
-        logger.error(f"❌ Icon scan error: {e}", exc_info=True)
+        logger.error(f"❌ Scan error: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail=str(e))
 
 
