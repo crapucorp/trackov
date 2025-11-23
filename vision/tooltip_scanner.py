@@ -103,17 +103,14 @@ class TooltipScanner:
             print("   ⚠️ No text detected by OCR")
             return None
         
-        # Fuzzy match against item names
+        # Fuzzy match against item names (optimized - only get best match)
         from fuzzywuzzy import process
         all_names = list(self.item_names_dict.keys())
+        best_match = process.extractOne(text.lower(), all_names)
         
-        # Get top 5 matches for debugging
-        top_matches = process.extract(text.lower(), all_names, limit=5)
-        print(f"   🔍 Top 5 matches:")
-        for match_name, score in top_matches:
-            print(f"      - {match_name}: {score}%")
-        
-        best_match = top_matches[0] if top_matches else None
+        if not best_match:
+            print(f"   ❌ No match found for '{text}'")
+            return None
         
         if best_match and best_match[1] >= 50:  # Lower threshold to 50%
             item_data = self.item_names_dict[best_match[0]]
