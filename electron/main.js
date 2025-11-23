@@ -43,7 +43,7 @@ function createWindow() {
         mainWindow.webContents.openDevTools();
     } else {
         mainWindow.loadFile(path.join(__dirname, '../build/index.html'));
-        // Temporarily enable DevTools for debugging
+        // DevTools enabled for debugging
         mainWindow.webContents.openDevTools();
     }
 
@@ -253,40 +253,47 @@ ipcMain.handle('install-app-update', () => {
 // ============================================
 
 /**
- * Check if Python is installed
+ * Start the Python scanner service
  */
-async function checkPythonInstalled() {
-    const pythonExe = process.platform === 'win32' ? 'python' : 'python3';
+async function startScannerService() {
+    const pythonScript = path.join(__dirname, '../vision/api_server.py');
 
-    return new Promise((resolve) => {
-        const { exec } = require('child_process');
-        exec(`${pythonExe} --version`, (error) => {
-            if (error) {
-                console.error('❌ Python not found in PATH');
-                resolve(false);
-            } else {
-                console.log('✅ Python found');
-                resolve(true);
-            }
+    // Determine Python path based on environment
+    const isDev = process.env.NODE_ENV === 'development';
+    let pythonExe;
+
+    if (isDev) {
+        // Development: use system Python
+        pythonExe = process.platform === 'win32' ? 'python' : 'python3';
+        console.log('🔧 Development mode: Using system Python');
+    } else {
+        // Production: use bundled Python (no PATH check needed)
+        pythonExe = path.join(process.resourcesPath, 'python-embed', 'python.exe');
+        console.log('📦 Production mode: Using bundled Python');
+        console.log(`   Python path: ${pythonExe}`);
+    }
+
+    console.log('🚀 Starting Python scanner service...');
+    console.log(`   Script: ${pythonScript}`);
+
+    try {
+        scannerProcess = spawn(pythonExe, [pythonScript], {
+            cwd: path.join(__dirname, '../vision'),
+            stdio: ['ignore', 'pipe', 'pipe'],
+            env: { ...process.env, PYTHONIOENCODING: 'utf-8' }
         });
-    });
-}
 
-/**
-                console.error('');
-                console.error('Please install required Python packages:');
-                console.error('');
-                console.error('1. Open terminal/command prompt');
-                console.error('2. Navigate to the vision folder');
-                console.error('3. Run: pip install -r requirements.txt');
-                console.error('');
-                console.error('═══════════════════════════════════════════════════');
-                console.error('');
-            }
+        // Log output
+        scannerProcess.stdout.on('data', (data) => {
+            console.log(`[Scanner] ${data.toString().trim()}`);
+        });
+
+        scannerProcess.stderr.on('data', (data) => {
+            console.error(`[Scanner ERROR] ${data.toString().trim()}`);
         });
 
         scannerProcess.on('error', (error) => {
-            console.error('❌ Failed to start scanner service:', error.message);
+            console.error('❌ Failed to start scanner service:', error);
             scannerProcess = null;
         });
 
