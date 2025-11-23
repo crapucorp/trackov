@@ -252,68 +252,6 @@ ipcMain.handle('install-app-update', () => {
 // SCANNER SERVICE MANAGEMENT
 // ============================================
 
-/**
- * Start the Python scanner service
- */
-async function startScannerService() {
-    const pythonScript = path.join(__dirname, '../vision/api_server.py');
-
-    // Determine Python path based on environment
-    const isDev = process.env.NODE_ENV === 'development';
-    let pythonExe;
-
-    if (isDev) {
-        // Development: use system Python
-        pythonExe = process.platform === 'win32' ? 'python' : 'python3';
-        console.log('🔧 Development mode: Using system Python');
-    } else {
-        // Production: use bundled Python (no PATH check needed)
-        pythonExe = path.join(process.resourcesPath, 'python-embed', 'python.exe');
-        console.log('📦 Production mode: Using bundled Python');
-        console.log(`   Python path: ${pythonExe}`);
-    }
-
-    console.log('🚀 Starting Python scanner service...');
-    console.log(`   Script: ${pythonScript}`);
-
-    try {
-        scannerProcess = spawn(pythonExe, [pythonScript], {
-            cwd: path.join(__dirname, '../vision'),
-            stdio: ['ignore', 'pipe', 'pipe'],
-            env: { ...process.env, PYTHONIOENCODING: 'utf-8' }
-        });
-
-        // Log output
-        scannerProcess.stdout.on('data', (data) => {
-            console.log(`[Scanner] ${data.toString().trim()}`);
-        });
-
-        scannerProcess.stderr.on('data', (data) => {
-            console.error(`[Scanner ERROR] ${data.toString().trim()}`);
-        });
-
-        scannerProcess.on('error', (error) => {
-            console.error('❌ Failed to start scanner service:', error);
-            scannerProcess = null;
-        });
-
-        scannerProcess.on('exit', (code) => {
-            console.log(`⚠️ Scanner service exited with code ${code}`);
-            scannerProcess = null;
-        });
-
-        // Wait for service to be ready
-        await waitForService();
-        console.log('✅ Scanner service ready');
-
-    } catch (error) {
-        console.error('❌ Error starting scanner service:', error);
-    }
-}
-
-/**
- * Wait for scanner service to be available
- */
 async function waitForService(maxRetries = 10) {
     const SCANNER_URL = 'http://127.0.0.1:8765';
 
