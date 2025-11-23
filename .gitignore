@@ -70,3 +70,7 @@ __pycache__/
 *.pyc
 *.pyo
 *.pyd
+
+# Bundled Python (local builds only)
+resources/python-embed/
+resources/*.zip
