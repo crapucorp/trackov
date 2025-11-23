@@ -1,4 +1,4 @@
-const { app, BrowserWindow, ipcMain } = require('electron');
+const { app, BrowserWindow, ipcMain, globalShortcut, screen } = require('electron');
 const { autoUpdater } = require('electron-updater');
 const path = require('path');
 const fs = require('fs').promises;
@@ -264,7 +264,8 @@ async function startScannerService() {
     try {
         scannerProcess = spawn(pythonExe, [pythonScript], {
             cwd: path.join(__dirname, '../vision'),
-            stdio: ['ignore', 'pipe', 'pipe']
+            stdio: ['ignore', 'pipe', 'pipe'],
+            env: { ...process.env, PYTHONIOENCODING: 'utf-8' }
         });
 
         // Log output
@@ -344,6 +345,42 @@ app.whenReady().then(async () => {
     // Start Python scanner service
     await startScannerService();
 
+    // Register global shortcut for icon scanning (Shift+F5)
+    const ret = globalShortcut.register('Shift+F5', async () => {
+        console.log('🔍 Shift+F5 pressed - scanning for icon...');
+
+        // Get cursor position
+        const cursorPos = screen.getCursorScreenPoint();
+        console.log(`   Cursor at: (${cursorPos.x}, ${cursorPos.y})`);
+
+        try {
+            // Call Python API to scan icon at cursor position
+            const response = await fetch('http://127.0.0.1:8765/scan-icon', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ x: cursorPos.x, y: cursorPos.y })
+            });
+
+            const result = await response.json();
+            console.log('📊 Scan result:', result);
+
+            // TODO: Show result in overlay or notification
+            if (result.success && result.item) {
+                console.log(`✅ Found: ${result.item.name} - ${result.item.price}₽`);
+            } else {
+                console.log('❌ No item found');
+            }
+        } catch (error) {
+            console.error('❌ Scan error:', error);
+        }
+    });
+
+    if (!ret) {
+        console.log('⚠️ Failed to register Shift+F5 shortcut');
+    } else {
+        console.log('✅ Shift+F5 shortcut registered - Press Shift+F5 to scan icons');
+    }
+
     // Check for app updates after window is ready (in production only)
     if (process.env.NODE_ENV !== 'development') {
         setTimeout(() => {
@@ -362,6 +399,7 @@ app.whenReady().then(async () => {
 
 app.on('window-all-closed', () => {
     stopScannerService(); // Clean up scanner service
+    globalShortcut.unregisterAll(); // Clean up shortcuts
     if (process.platform !== 'darwin') {
         app.quit();
     }
@@ -369,4 +407,5 @@ app.on('window-all-closed', () => {
 
 app.on('before-quit', () => {
     stopScannerService(); // Ensure cleanup on quit
+    globalShortcut.unregisterAll(); // Ensure shortcuts cleanup
 });

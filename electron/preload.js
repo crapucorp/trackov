@@ -36,11 +36,21 @@ contextBridge.exposeInMainWorld('electron', {
         start: () => ipcRenderer.invoke('scan:start'),
         toggleOverlay: (show) => ipcRenderer.invoke('overlay:toggle', show),
         clearOverlay: () => ipcRenderer.invoke('overlay:clear'),
+        clearScan: () => ipcRenderer.invoke('scan:clear'),
+        updateHoverOverlay: (data) => ipcRenderer.invoke('update-hover-overlay', data),
+        setHoverActive: (active) => ipcRenderer.invoke('hover:set-active', active), // NEW
+        onScanResults: (callback) => ipcRenderer.on('scan:results', callback),
+        onScanStarted: (callback) => ipcRenderer.on('scan:started', callback),
+        onHoverUpdate: (callback) => ipcRenderer.on('hover-update', callback),
     }
 });
 
 // Separate API for overlay window (simplified)
 contextBridge.exposeInMainWorld('electronAPI', {
     onScanStarted: (callback) => ipcRenderer.on('scan:started', callback),
-    onScanResults: (callback) => ipcRenderer.on('scan:results', (event, matches) => callback(matches))
+    onScanResults: (callback) => ipcRenderer.on('scan:results', (event, matches) => callback(matches)),
+    onHoverUpdate: (callback) => ipcRenderer.on('hover-update', (event, data) => callback(data)),
+    onHoverStateChanged: (callback) => ipcRenderer.on('hover:active-state', (event, active) => callback(active)), // NEW
+    updateHoverOverlay: (data) => ipcRenderer.invoke('update-hover-overlay', data),
+    toggleOverlay: (show) => ipcRenderer.invoke('overlay:toggle', show)
 });

@@ -84,6 +84,34 @@ function registerScanHandlers(mainWindow, ovWindow) {
         }
     });
 
+    // Handle hover scanner updates
+    ipcMain.handle('update-hover-overlay', (event, data) => {
+        if (overlayWindow && !overlayWindow.isDestroyed()) {
+            overlayWindow.webContents.send('hover-update', data);
+
+            // Ensure overlay is visible and click-through
+            if (data) {
+                overlayWindow.showInactive();
+                overlayWindow.setIgnoreMouseEvents(true, { forward: true });
+            }
+        }
+    });
+
+    // Handler: Set Hover Mode Active (Controls border and window visibility)
+    ipcMain.handle('hover:set-active', (event, active) => {
+        if (overlayWindow && !overlayWindow.isDestroyed()) {
+            if (active) {
+                overlayWindow.showInactive(); // Show without taking focus
+                overlayWindow.setIgnoreMouseEvents(true, { forward: true }); // Click-through
+            } else {
+                // Only hide if we want to completely clear everything
+                overlayWindow.hide();
+            }
+            // Tell the overlay renderer to show/hide the blue border
+            overlayWindow.webContents.send('hover:active-state', active);
+        }
+    });
+
     // Handler: Clear overlay highlights
     ipcMain.handle('overlay:clear', async () => {
         if (overlayWindow && !overlayWindow.isDestroyed()) {

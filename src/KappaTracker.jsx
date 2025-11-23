@@ -4,7 +4,6 @@ import DataCard from './DataCard';
 import UpdateNotification from './components/UpdateNotification';
 import AppUpdater from './components/AppUpdater';
 import ScanButton from './components/ScanButton';
-import HoverScanButton from './components/HoverScanButton';
 import { loadProgress, saveProgress } from './services/fileSystem';
 import { checkForUpdates, loadAppData } from './services/autoUpdate';
 
@@ -37,11 +36,11 @@ const KappaTracker = () => {
                     console.log('⏭️ Skipping update check - update was just applied');
                 } else {
                     // Check for updates on startup
-                    const updateCheck = await checkForUpdates();
-                    if (updateCheck.available) {
-                        setUpdateInfo(updateCheck);
-                        setShowUpdateNotification(true);
-                    }
+                    // const updateCheck = await checkForUpdates();
+                    // if (updateCheck.available) {
+                    //     setUpdateInfo(updateCheck);
+                    //     setShowUpdateNotification(true);
+                    // }
                 }
 
                 // Load user progress from file system (or localStorage as fallback)
@@ -227,10 +226,9 @@ const KappaTracker = () => {
                         </h1>
                     </div>
 
-                    {/* Smart Scan Buttons */}
+                    {/* Smart Scan Button */}
                     <div className="flex items-center gap-2">
                         <ScanButton />
-                        <HoverScanButton />
                     </div>
 
                     {/* Tabs */}

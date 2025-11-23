@@ -10,7 +10,24 @@ from typing import List, Dict, Optional
 import uvicorn
 import logging
 from scanner_service import FastScanner
-from hover_scanner import HoverScanner
+
+# Try to import icon scanner (optional - requires OpenCV)
+try:
+    from icon_scanner import IconScanner
+    ICON_SCANNER_AVAILABLE = True
+except Exception as e:
+    print(f"⚠️ Icon scanner not available: {e}")
+    IconScanner = None
+    ICON_SCANNER_AVAILABLE = False
+
+# Try to import hover scanner (optional - requires OpenCV + Tesseract)
+try:
+    from hover_scanner import HoverScanner
+    HOVER_SCANNER_AVAILABLE = True
+except Exception as e:
+    print(f"⚠️ Hover scanner not available: {e}")
+    HoverScanner = None
+    HOVER_SCANNER_AVAILABLE = False
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -29,8 +46,11 @@ app.add_middleware(
 # Initialize scanner
 scanner = FastScanner()
 
-# Initialize hover scanner (for real-time mouse scanning)
-hover_scanner = HoverScanner()
+# Initialize icon scanner (for real-time icon recognition) - only if available
+icon_scanner = IconScanner() if ICON_SCANNER_AVAILABLE else None
+
+# Initialize hover scanner (for OCR-based scanning) - only if available
+hover_scanner = HoverScanner() if HOVER_SCANNER_AVAILABLE else None
 
 
 class ScanResponse(BaseModel):
@@ -46,6 +66,8 @@ async def startup_event():
     logger.info("🚀 Starting Kappa Scanner API...")
     count = scanner.load_templates()
     logger.info(f"✅ Scanner ready with {count} templates")
+    # Note: Scanners are NOT auto-started
+    # They start when user clicks the button in UI (calls /hover/start)
 
 
 @app.get("/")
@@ -89,35 +111,81 @@ async def list_templates():
     }
 
 
+class ScanIconRequest(BaseModel):
+    x: int
+    y: int
+
+
+@app.post("/scan-icon")
+async def scan_icon(request: ScanIconRequest):
+    """Scan for icon at given cursor position (triggered by Electron Shift+F5)"""
+    if not ICON_SCANNER_AVAILABLE or icon_scanner is None:
+        raise HTTPException(status_code=503, detail="Icon scanner not available - OpenCV may not be installed")
+    
+    try:
+        logger.info(f"🔍 Scanning icon at position ({request.x}, {request.y})")
+        result = icon_scanner.scan_at_position(request.x, request.y)
+        
+        if result:
+            logger.info(f"✅ Found: {result['name']} - {result.get('avg24hPrice', 0)}₽")
+            return {
+                "success": True,
+                "item": {
+                    "id": result['id'],
+                    "name": result['name'],
+                    "shortName": result['shortName'],
+                    "price": result.get('avg24hPrice', 0),
+                    "confidence": result.get('confidence', 0)
+                }
+            }
+        else:
+            logger.info("❌ No item found")
+            return {"success": False, "item": None}
+    except Exception as e:
+        logger.error(f"❌ Icon scan error: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=str(e))
+
+
 @app.post("/hover/start")
 async def start_hover_scan():
-    """Start hover scanning mode"""
+    """Start hover scanning mode (Ctrl+Shift+Click OCR)"""
+    if not HOVER_SCANNER_AVAILABLE or hover_scanner is None:
+        raise HTTPException(status_code=503, detail="Hover scanner not available - OpenCV/Tesseract may not be installed")
     try:
         hover_scanner.start()
         return {"success": True, "message": "Hover scanning started"}
     except Exception as e:
-        logger.error(f"❌ Hover start error: {e}")
+        logger.error(f"❌ Hover scanner start error: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
 
 @app.post("/hover/stop")
 async def stop_hover_scan():
-    """Stop hover scanning mode"""
+    """Stop hover scanning mode (Ctrl+Shift+Click OCR)"""
+    if not HOVER_SCANNER_AVAILABLE or hover_scanner is None:
+        raise HTTPException(status_code=503, detail="Hover scanner not available")
     try:
         hover_scanner.stop()
         return {"success": True, "message": "Hover scanning stopped"}
     except Exception as e:
-        logger.error(f"❌ Hover stop error: {e}")
+        logger.error(f"❌ Hover scanner stop error: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
 
 @app.get("/hover/status")
 async def get_hover_status():
-    """Get current hover scan result"""
+    """Get current hover scan result (Ctrl+Shift+Click OCR)"""
+    if not HOVER_SCANNER_AVAILABLE or hover_scanner is None:
+        return {
+            "isScanning": False,
+            "result": None,
+            "available": False
+        }
     result = hover_scanner.get_result()
     return {
         "isScanning": hover_scanner.is_running,
-        "result": result
+        "result": result,
+        "available": True
     }
 
 

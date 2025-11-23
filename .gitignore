@@ -24,3 +24,11 @@ release
 *.njsproj
 *.sln
 *.sw?
+
+# Tesseract Portable
+tesseract-portable/
+vision/__pycache__/
+vision/*.pyc
+
+# Debug
+debug_images/

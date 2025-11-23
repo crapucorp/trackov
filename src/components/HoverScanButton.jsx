@@ -1,15 +1,15 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 
 export default function HoverScanButton() {
     const [isScanning, setIsScanning] = useState(false);
     const [itemInfo, setItemInfo] = useState(null);
-    const [mousePos, setMousePos] = useState({ x: 0, y: 0 });
+    const mousePosRef = useRef({ x: 0, y: 0 });
 
     useEffect(() => {
         let pollInterval;
 
         if (isScanning) {
-            // Poll for hover scan results every 500ms
+            // Poll for hover scan results every 150ms (Faster for instant feel)
             pollInterval = setInterval(async () => {
                 try {
                     const response = await fetch('http://127.0.0.1:8765/hover/status');
@@ -17,23 +17,38 @@ export default function HoverScanButton() {
 
                     if (data.result) {
                         setItemInfo(data.result);
+                        // Send to overlay
+                        if (window.electronAPI && window.electronAPI.updateHoverOverlay) {
+                            window.electronAPI.updateHoverOverlay({
+                                item: data.result,
+                                mouse: { x: mousePosRef.current.x, y: mousePosRef.current.y }
+                            });
+                        }
                     } else {
                         setItemInfo(null);
+                        if (window.electronAPI && window.electronAPI.updateHoverOverlay) {
+                            window.electronAPI.updateHoverOverlay(null);
+                        }
                     }
                 } catch (error) {
                     console.error('Error polling hover status:', error);
                 }
-            }, 500);
+            }, 150);
 
             // Track mouse position for tooltip
             const handleMouseMove = (e) => {
-                setMousePos({ x: e.clientX, y: e.clientY });
+                // Update ref for polling loop
+                mousePosRef.current = { x: e.screenX, y: e.screenY };
             };
             window.addEventListener('mousemove', handleMouseMove);
 
             return () => {
                 clearInterval(pollInterval);
                 window.removeEventListener('mousemove', handleMouseMove);
+                // Clear overlay on unmount/stop
+                if (window.electronAPI && window.electronAPI.updateHoverOverlay) {
+                    window.electronAPI.updateHoverOverlay(null);
+                }
             };
         }
     }, [isScanning]);
@@ -45,11 +60,26 @@ export default function HoverScanButton() {
                 await fetch('http://127.0.0.1:8765/hover/stop', { method: 'POST' });
                 setIsScanning(false);
                 setItemInfo(null);
+
+                // Update Overlay State
+                if (window.electron && window.electron.scan) {
+                    if (window.electron.scan.setHoverActive) {
+                        await window.electron.scan.setHoverActive(false);
+                    }
+                    if (window.electron.scan.updateHoverOverlay) {
+                        await window.electron.scan.updateHoverOverlay(null);
+                    }
+                }
                 console.log('Hover scan stopped');
             } else {
                 // Start scanning
                 await fetch('http://127.0.0.1:8765/hover/start', { method: 'POST' });
                 setIsScanning(true);
+
+                // Update Overlay State (Show Border)
+                if (window.electron && window.electron.scan && window.electron.scan.setHoverActive) {
+                    await window.electron.scan.setHoverActive(true);
+                }
                 console.log('Hover scan started');
             }
         } catch (error) {
@@ -61,66 +91,16 @@ export default function HoverScanButton() {
         <>
             <button
                 onClick={toggleScan}
+                title={isScanning ? "Scanner Active - Ctrl+Shift+Click on items to scan" : "Enable Quick Scan"}
                 className={`px-4 py-2 rounded-lg font-semibold transition-all duration-300 ${isScanning
-                        ? 'bg-cyan-500 text-black hover:bg-cyan-400 shadow-lg shadow-cyan-500/50'
-                        : 'bg-slate-700 text-white hover:bg-slate-600'
+                    ? 'bg-cyan-500 text-black hover:bg-cyan-400 shadow-lg shadow-cyan-500/50'
+                    : 'bg-slate-700 text-white hover:bg-slate-600'
                     }`}
             >
-                {isScanning ? '🎯 HOVER SCAN ON' : '🔍 HOVER SCAN'}
+                {isScanning ? '⚡ QUICK SCAN ON' : '🔍 QUICK SCAN'}
             </button>
 
-            {/* Tooltip overlay */}
-            {isScanning && itemInfo && (
-                <div
-                    className="fixed z-[9999] pointer-events-none"
-                    style={{
-                        left: `${mousePos.x + 20}px`,
-                        top: `${mousePos.y + 20}px`,
-                    }}
-                >
-                    <div className="bg-black/90 backdrop-blur-md border-2 border-cyan-500 rounded-lg p-4 shadow-2xl shadow-cyan-500/50 min-w-[250px]">
-                        {/* Item Name */}
-                        <div className="text-cyan-400 font-bold text-lg mb-2">
-                            {itemInfo.shortName}
-                        </div>
-
-                        {/* Full Name */}
-                        <div className="text-gray-300 text-sm mb-3">
-                            {itemInfo.name}
-                        </div>
-
-                        {/* Price Info */}
-                        {itemInfo.price > 0 && (
-                            <>
-                                <div className="border-t border-cyan-500/30 pt-2 mb-2" />
-                                <div className="flex justify-between items-center">
-                                    <span className="text-gray-400 text-sm">Avg Price:</span>
-                                    <span className="text-cyan-400 font-bold">
-                                        ₽ {itemInfo.price.toLocaleString()}
-                                    </span>
-                                </div>
-
-                                {/* Price per slot */}
-                                {itemInfo.width && itemInfo.height && (
-                                    <div className="flex justify-between items-center mt-1">
-                                        <span className="text-gray-400 text-sm">Per Slot:</span>
-                                        <span className="text-cyan-300 text-sm">
-                                            ₽ {Math.round(itemInfo.price / (itemInfo.width * itemInfo.height)).toLocaleString()}
-                                        </span>
-                                    </div>
-                                )}
-                            </>
-                        )}
-
-                        {/* Confidence */}
-                        <div className="border-t border-cyan-500/30 pt-2 mt-2">
-                            <div className="text-gray-500 text-xs">
-                                Confidence: {itemInfo.confidence}%
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            )}
+            {/* Tooltip is now handled by the Overlay Window */}
         </>
     );
 }
