@@ -1,7 +1,7 @@
 {
   "name": "tarkov-tracker",
   "private": true,
-  "version": "1.0.12",
+  "version": "1.0.13",
   "main": "electron/main.js",
   "description": "TarkovTracker - Kappa Item Tracker for Escape from Tarkov",
   "author": "TarkovTracker",
