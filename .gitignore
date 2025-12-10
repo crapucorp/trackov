@@ -18,6 +18,7 @@ release
 .vscode/*
 !.vscode/extensions.json
 .idea
+.claude/
 .DS_Store
 *.suo
 *.ntvs*
@@ -32,6 +33,7 @@ vision/*.pyc
 
 # Debug
 debug_images/
+vision/debug_captures/
 
 # Environment variables (API keys)
 .env
@@ -74,3 +76,4 @@ __pycache__/
 # Bundled Python (local builds only)
 resources/python-embed/
 resources/*.zip
+node_modules

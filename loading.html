@@ -1,0 +1,137 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>TarkovTracker - Loading</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            background: #0a0f14;
+            color: #06b6d4;
+            font-family: 'Courier New', monospace;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            height: 100vh;
+            overflow: hidden;
+        }
+
+        .loading-container {
+            text-align: center;
+            max-width: 500px;
+            padding: 40px;
+        }
+
+        .spinner {
+            width: 80px;
+            height: 80px;
+            margin: 0 auto 30px;
+            border: 4px solid rgba(6, 182, 212, 0.1);
+            border-top: 4px solid #06b6d4;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        .title {
+            font-size: 28px;
+            font-weight: bold;
+            margin-bottom: 20px;
+            text-shadow: 0 0 10px rgba(6, 182, 212, 0.5);
+        }
+
+        .progress-bar-container {
+            width: 100%;
+            height: 4px;
+            background: rgba(6, 182, 212, 0.1);
+            border-radius: 2px;
+            overflow: hidden;
+            margin: 20px 0;
+        }
+
+        .progress-bar {
+            height: 100%;
+            background: linear-gradient(90deg, #06b6d4, #0891b2);
+            width: 0%;
+            transition: width 0.3s ease;
+            box-shadow: 0 0 10px rgba(6, 182, 212, 0.5);
+        }
+
+        .status {
+            font-size: 14px;
+            color: rgba(6, 182, 212, 0.7);
+            margin-top: 10px;
+        }
+
+        .timer {
+            font-size: 12px;
+            color: rgba(6, 182, 212, 0.5);
+            margin-top: 5px;
+        }
+    </style>
+</head>
+<body>
+    <div class="loading-container">
+        <div class="spinner"></div>
+        <div class="title">TARKOVTRACKER</div>
+        <div class="progress-bar-container">
+            <div class="progress-bar" id="progressBar"></div>
+        </div>
+        <div class="status" id="statusText">Initializing scanner service...</div>
+        <div class="timer" id="timerText">0s</div>
+    </div>
+
+    <script>
+        let startTime = Date.now();
+        let currentProgress = 0;
+
+        // Update timer
+        setInterval(() => {
+            const elapsed = Math.floor((Date.now() - startTime) / 1000);
+            document.getElementById('timerText').textContent = elapsed + 's';
+        }, 1000);
+
+        // Listen for progress updates from Electron
+        if (window.electron && window.electron.ipcRenderer) {
+            window.electron.ipcRenderer.on('scanner-loading-progress', (event, data) => {
+                if (data.progress !== undefined) {
+                    currentProgress = data.progress;
+                    document.getElementById('progressBar').style.width = data.progress + '%';
+                }
+                if (data.message) {
+                    document.getElementById('statusText').textContent = data.message;
+                }
+            });
+
+            window.electron.ipcRenderer.on('scanner-ready', () => {
+                // Redirect to main app
+                window.location.href = 'http://localhost:5173';
+            });
+        }
+
+        // Fallback: simulate progress if no IPC
+        if (!window.electron) {
+            let simulatedProgress = 0;
+            const interval = setInterval(() => {
+                simulatedProgress += 2;
+                if (simulatedProgress > 100) {
+                    clearInterval(interval);
+                    window.location.href = 'http://localhost:5173';
+                } else {
+                    document.getElementById('progressBar').style.width = simulatedProgress + '%';
+                }
+            }, 500);
+        }
+    </script>
+</body>
+</html>

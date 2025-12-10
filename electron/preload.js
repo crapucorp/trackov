@@ -8,10 +8,15 @@ contextBridge.exposeInMainWorld('electron', {
     loadProgress: () => ipcRenderer.invoke('load-progress'),
     getAppVersion: () => ipcRenderer.invoke('get-app-version'),
     getDocumentsPath: () => ipcRenderer.invoke('get-documents-path'),
+    getLoadingState: () => ipcRenderer.invoke('get-loading-state'),
 
     // Update data operations (Firebase)
     saveUpdateData: (data, version) => ipcRenderer.invoke('save-update-data', data, version),
     loadUpdateData: () => ipcRenderer.invoke('load-update-data'),
+
+    // Keybind settings
+    updateKeybinds: (keybinds) => ipcRenderer.invoke('update-keybinds', keybinds),
+    getKeybinds: () => ipcRenderer.invoke('get-keybinds'),
 
     // Check if running in Electron
     isElectron: true,
@@ -42,6 +47,16 @@ contextBridge.exposeInMainWorld('electron', {
         onScanResults: (callback) => ipcRenderer.on('scan:results', callback),
         onScanStarted: (callback) => ipcRenderer.on('scan:started', callback),
         onHoverUpdate: (callback) => ipcRenderer.on('hover-update', callback),
+    },
+
+    // Generic IPC renderer for custom events
+    ipcRenderer: {
+        on: (channel, callback) => {
+            ipcRenderer.on(channel, (event, ...args) => callback(event, ...args));
+        },
+        removeListener: (channel, callback) => {
+            ipcRenderer.removeListener(channel, callback);
+        }
     }
 });
 
@@ -50,7 +65,12 @@ contextBridge.exposeInMainWorld('electronAPI', {
     onScanStarted: (callback) => ipcRenderer.on('scan:started', callback),
     onScanResults: (callback) => ipcRenderer.on('scan:results', (event, matches) => callback(matches)),
     onHoverUpdate: (callback) => ipcRenderer.on('hover-update', (event, data) => callback(data)),
-    onHoverStateChanged: (callback) => ipcRenderer.on('hover:active-state', (event, active) => callback(active)), // NEW
+    onHoverStateChanged: (callback) => ipcRenderer.on('hover:active-state', (event, active) => callback(active)),
+    onGearScanStart: (callback) => ipcRenderer.on('gear-scan-start', () => callback()),
+    onGearScanResult: (callback) => ipcRenderer.on('gear-scan-result', (event, data) => callback(data)),
+    onScrollHide: (callback) => ipcRenderer.on('scroll-hide', () => callback()),
+    onItemHover: (callback) => ipcRenderer.on('item-hover', (event, index) => callback(index)),
     updateHoverOverlay: (data) => ipcRenderer.invoke('update-hover-overlay', data),
-    toggleOverlay: (show) => ipcRenderer.invoke('overlay:toggle', show)
+    toggleOverlay: (show) => ipcRenderer.invoke('overlay:toggle', show),
+    setInteractive: (interactive) => ipcRenderer.invoke('overlay:set-interactive', interactive)
 });

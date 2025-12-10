@@ -7,7 +7,11 @@ export default {
     "!./electron/**/*"
   ],
   theme: {
-    extend: {},
+    extend: {
+      colors: {
+        'tarkov-green': '#39ff14',
+      }
+    },
   },
   plugins: [],
 }

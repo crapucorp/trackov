@@ -1,7 +1,7 @@
 {
   "name": "tarkov-tracker",
   "private": true,
-  "version": "1.0.13",
+  "version": "1.0.19",
   "main": "electron/main.js",
   "description": "TarkovTracker - Kappa Item Tracker for Escape from Tarkov",
   "author": "TarkovTracker",
@@ -66,14 +66,18 @@
   },
   "dependencies": {
     "@techstark/opencv-js": "^4.12.0-release.1",
+    "app-builder-bin": "^5.0.0-alpha.12",
+    "clsx": "^2.1.1",
     "electron-updater": "^6.6.2",
     "esbuild": "^0.21.5",
     "firebase": "^12.6.0",
-    "framer-motion": "^12.23.24",
+    "framer-motion": "^12.23.25",
+    "lucide-react": "^0.555.0",
     "pngjs": "^7.0.0",
     "react": "^19.2.0",
     "react-dom": "^19.2.0",
-    "sharp": "^0.34.5"
+    "sharp": "^0.34.5",
+    "tailwind-merge": "^3.4.0"
   },
   "devDependencies": {
     "@eslint/js": "^9.39.1",

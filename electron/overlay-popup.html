@@ -44,18 +44,9 @@
             transform: translateY(0);
         }
 
-        /* Scanline effect */
+        /* Scanline effect - DISABLED */
         .scanline {
-            position: absolute;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            background: linear-gradient(to bottom, rgba(255, 255, 255, 0), rgba(255, 255, 255, 0) 50%, rgba(0, 0, 0, 0.2) 50%, rgba(0, 0, 0, 0.2));
-            background-size: 100% 4px;
-            pointer-events: none;
-            z-index: 10;
-            opacity: 0.3;
+            display: none;
         }
 
         /* Header decoration */
@@ -66,12 +57,17 @@
             width: 100%;
         }
 
+        .item-header {
+            display: flex;
+            align-items: center;
+            margin-bottom: 4px;
+        }
+
         #item-name {
             color: #22d3ee;
             /* cyan-400 */
             font-size: 14px;
             font-weight: 700;
-            margin-bottom: 4px;
             white-space: nowrap;
             text-transform: uppercase;
             letter-spacing: 0.5px;
@@ -162,20 +158,19 @@
         <div class="corner bottom-left"></div>
         <div class="corner bottom-right"></div>
 
-        <div id="item-name"></div>
+        <div class="item-header">
+            <img id="item-icon" src="" alt="" style="display: none; width: 48px; height: 48px; object-fit: contain; margin-right: 10px; background: rgba(0,0,0,0.3); border-radius: 4px;">
+            <div id="item-name"></div>
+        </div>
         <div class="header-line"></div>
 
         <div class="price-row">
-            <span class="price-label">FLEA MARKET</span>
+            <span class="price-label">FLEA AVG/SLOT</span>
             <span class="price-value" id="flea-price"></span>
         </div>
         <div class="price-row">
-            <span class="price-label">THERAPIST</span>
-            <span class="price-value" id="therapist-price"></span>
-        </div>
-        <div class="price-row">
-            <span class="price-label">MECHANIC</span>
-            <span class="price-value" id="mechanic-price"></span>
+            <span class="price-label" id="best-trader-label">BEST TRADER</span>
+            <span class="price-value" id="trader-price"></span>
         </div>
         <div id="item-confidence"></div>
     </div>
@@ -191,44 +186,74 @@
         ipcRenderer.on('show-result', (event, data) => {
             const popup = document.getElementById('popup');
             const itemName = document.getElementById('item-name');
-            const fleaPrice = document.getElementById('flea-price');
-            const therapistPrice = document.getElementById('therapist-price');
-            const mechanicPrice = document.getElementById('mechanic-price');
+            const fleaPriceEl = document.getElementById('flea-price');
+            const traderPriceEl = document.getElementById('trader-price');
+            const traderLabelEl = document.getElementById('best-trader-label');
             const itemConfidence = document.getElementById('item-confidence');
+            const itemIcon = document.getElementById('item-icon');
+
+            // Update item icon if available
+            if (itemIcon && data.iconUrl) {
+                itemIcon.src = data.iconUrl;
+                itemIcon.style.display = 'block';
+            } else if (itemIcon) {
+                itemIcon.style.display = 'none';
+            }
 
             // Update content
-            itemName.textContent = data.name;
+            itemName.textContent = data.shortName || data.name;
 
-            const flea = data.fleaMinPrice || data.avg24hPrice;
-            fleaPrice.textContent = formatPrice(flea);
+            // Get slots (from API or calculate from dimensions)
+            const slots = data.slots || ((data.width || 1) * (data.height || 1));
 
-            // Find Therapist and Mechanic prices from sellFor array
-            const therapist = data.sellFor?.find(s => s.vendor?.name === 'Therapist');
-            const mechanic = data.sellFor?.find(s => s.vendor?.name === 'Mechanic');
+            // Flea price per slot (real-time price from Tarkov Market / slots)
+            const fleaTotal = data.fleaPrice || data.fleaMinPrice || data.price || 0;
+            const fleaPerSlot = slots > 0 ? Math.round(fleaTotal / slots) : fleaTotal;
+            fleaPriceEl.textContent = formatPrice(fleaPerSlot);
 
-            therapistPrice.textContent = formatPrice(therapist?.priceRUB);
-            mechanicPrice.textContent = formatPrice(mechanic?.priceRUB);
+            // Find BEST trader price from sellFor array
+            // Exclude "Flea Market" and "Fence" (fence has worst prices)
+            let bestTrader = { name: 'N/A', price: 0 };
 
-            // Highlight best price
-            fleaPrice.className = 'price-value';
-            therapistPrice.className = 'price-value';
-            mechanicPrice.className = 'price-value';
+            if (data.sellFor && Array.isArray(data.sellFor)) {
+                data.sellFor.forEach(s => {
+                    const vendorName = (typeof s.vendor === 'string') ? s.vendor : s.vendor?.name;
+                    const price = s.price || s.priceRUB || 0;
 
-            const prices = [
-                { el: fleaPrice, val: flea || 0 },
-                { el: therapistPrice, val: therapist?.priceRUB || 0 },
-                { el: mechanicPrice, val: mechanic?.priceRUB || 0 }
-            ];
+                    // Skip Flea Market and Fence
+                    if (!vendorName) return;
+                    const lowerName = vendorName.toLowerCase();
+                    if (lowerName === 'flea market' || lowerName === 'fence') return;
 
-            // Find max price to highlight
-            const maxPrice = Math.max(...prices.map(p => p.val));
-            if (maxPrice > 0) {
-                prices.forEach(p => {
-                    if (p.val === maxPrice) p.el.classList.add('high');
+                    if (price > bestTrader.price) {
+                        bestTrader = { name: vendorName, price: price };
+                    }
                 });
             }
 
-            itemConfidence.textContent = `CONFIDENCE: ${data.confidence}%`;
+            // Update trader label and price
+            traderLabelEl.textContent = bestTrader.name.toUpperCase();
+            traderPriceEl.textContent = formatPrice(bestTrader.price);
+
+            // Highlight best price (compare flea per slot vs trader total)
+            fleaPriceEl.className = 'price-value';
+            traderPriceEl.className = 'price-value';
+
+            if (fleaPerSlot > 0 && bestTrader.price > 0) {
+                // Compare per-slot value: flea per slot vs trader per slot
+                const traderPerSlot = Math.round(bestTrader.price / slots);
+                if (fleaPerSlot >= traderPerSlot) {
+                    fleaPriceEl.classList.add('high');
+                } else {
+                    traderPriceEl.classList.add('high');
+                }
+            } else if (fleaPerSlot > 0) {
+                fleaPriceEl.classList.add('high');
+            } else if (bestTrader.price > 0) {
+                traderPriceEl.classList.add('high');
+            }
+
+            itemConfidence.textContent = `CONFIDENCE: ${Math.round(data.confidence)}%`;
 
             // Show popup with animation
             setTimeout(() => popup.classList.add('show'), 10);

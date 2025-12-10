@@ -1,9 +1,11 @@
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
+import { Keyboard } from 'lucide-react';
 import DataCard from './DataCard';
 import UpdateNotification from './components/UpdateNotification';
 import AppUpdater from './components/AppUpdater';
-import ScanButton from './components/ScanButton';
+import ScanOptionsButton from './components/ScanOptionsButton';
+import KeybindSettings from './components/KeybindSettings';
 import { loadProgress, saveProgress } from './services/fileSystem';
 import { checkForUpdates, loadAppData } from './services/autoUpdate';
 
@@ -21,6 +23,12 @@ const KappaTracker = () => {
     const [searchTerm, setSearchTerm] = useState('');
     const [updateInfo, setUpdateInfo] = useState(null);
     const [showUpdateNotification, setShowUpdateNotification] = useState(false);
+    const [scanOptions, setScanOptions] = useState({
+        showGlowOrbs: true,
+        showPriceTags: false,
+        priceTagStyle: 'colored',
+    });
+    const [showKeybindSettings, setShowKeybindSettings] = useState(false);
 
     // Track if we're still loading initial data (to avoid saving empty state)
     const isInitialLoad = useRef(true);
@@ -226,9 +234,18 @@ const KappaTracker = () => {
                         </h1>
                     </div>
 
-                    {/* Smart Scan Button */}
+                    {/* Scan Options & Keybinds */}
                     <div className="flex items-center gap-2">
-                        <ScanButton />
+                        <ScanOptionsButton onOptionsChange={setScanOptions} />
+                        <motion.button
+                            onClick={() => setShowKeybindSettings(true)}
+                            whileHover={{ scale: 1.02 }}
+                            whileTap={{ scale: 0.98 }}
+                            className="px-3 py-2.5 flex items-center gap-2 bg-gradient-to-r from-slate-800 to-slate-900 border border-slate-600 rounded text-gray-400 font-bold text-sm tracking-wider hover:border-cyan-500 hover:text-cyan-400 transition-all duration-200"
+                            title="Configure Keybinds"
+                        >
+                            <Keyboard size={16} />
+                        </motion.button>
                     </div>
 
                     {/* Tabs */}
@@ -357,6 +374,12 @@ const KappaTracker = () => {
                 )}
 
             </main>
+
+            {/* Keybind Settings Modal */}
+            <KeybindSettings
+                isOpen={showKeybindSettings}
+                onClose={() => setShowKeybindSettings(false)}
+            />
         </div>
     );
 };
