@@ -67,6 +67,10 @@ vision/downloadIcons.js
 # Build output (regenerated)
 build/
 
+# Generated launchers
+TarkovTracker.bat
+TarkovTracker.vbs
+
 # Python
 __pycache__/
 *.pyc

@@ -53,7 +53,19 @@ const AppUpdater = () => {
 
     const handleDownload = async () => {
         try {
-            await window.electron.appUpdater.downloadUpdate();
+            // Check if this is a GitHub update
+            if (updateInfo?.isGitHub) {
+                setUpdateState('downloading');
+                const result = await window.electron.githubUpdater.downloadUpdate();
+                if (result.success) {
+                    setUpdateState('downloaded');
+                    setUpdateInfo({ ...updateInfo, needsRestart: true });
+                } else {
+                    throw new Error(result.error);
+                }
+            } else {
+                await window.electron.appUpdater.downloadUpdate();
+            }
         } catch (err) {
             setError(err.message);
             setUpdateState('error');
@@ -71,7 +83,29 @@ const AppUpdater = () => {
     const handleCheckForUpdates = async () => {
         try {
             setUpdateState('checking');
-            await window.electron.appUpdater.checkForUpdates();
+
+            // Try electron-updater first (for installed versions)
+            try {
+                await window.electron.appUpdater.checkForUpdates();
+            } catch (electronErr) {
+                console.log('Electron updater failed, trying GitHub...', electronErr);
+
+                // Fallback to GitHub updates (for portable version)
+                if (window.electron?.githubUpdater) {
+                    const result = await window.electron.githubUpdater.checkForUpdates();
+                    if (result.success) {
+                        if (result.hasUpdate) {
+                            setUpdateState('available');
+                            setUpdateInfo({ version: result.remoteVersion, isGitHub: true });
+                        } else {
+                            setUpdateState('uptodate');
+                            setTimeout(() => setUpdateState('idle'), 3000);
+                        }
+                    } else {
+                        throw new Error(result.error);
+                    }
+                }
+            }
         } catch (err) {
             setError(err.message);
             setUpdateState('error');

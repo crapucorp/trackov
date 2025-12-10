@@ -320,6 +320,93 @@ ipcMain.handle('install-app-update', () => {
     autoUpdater.quitAndInstall(false, true);
 });
 
+// ============================================
+// GITHUB UPDATE SYSTEM (For Portable Version)
+// ============================================
+
+const https = require('https');
+const GITHUB_REPO = 'crapucorp/trackov';
+const GITHUB_RAW_URL = `https://raw.githubusercontent.com/${GITHUB_REPO}/main`;
+
+/**
+ * Fetch JSON from URL
+ */
+function fetchJSON(url) {
+    return new Promise((resolve, reject) => {
+        https.get(url, (res) => {
+            let data = '';
+            res.on('data', chunk => data += chunk);
+            res.on('end', () => {
+                try {
+                    resolve(JSON.parse(data));
+                } catch (e) {
+                    reject(e);
+                }
+            });
+        }).on('error', reject);
+    });
+}
+
+/**
+ * Check for updates from GitHub
+ */
+ipcMain.handle('check-github-updates', async () => {
+    try {
+        const localPackage = require('../package.json');
+        const localVersion = localPackage.version;
+
+        // Fetch remote package.json
+        const remotePackage = await fetchJSON(`${GITHUB_RAW_URL}/package.json`);
+        const remoteVersion = remotePackage.version;
+
+        console.log(`📦 Local version: ${localVersion}, Remote version: ${remoteVersion}`);
+
+        const hasUpdate = remoteVersion !== localVersion;
+
+        return {
+            success: true,
+            hasUpdate,
+            localVersion,
+            remoteVersion,
+            updateInfo: hasUpdate ? { version: remoteVersion } : null
+        };
+    } catch (error) {
+        console.error('Error checking GitHub updates:', error);
+        return { success: false, error: error.message };
+    }
+});
+
+/**
+ * Download update from GitHub (runs UPDATE.bat)
+ */
+ipcMain.handle('download-github-update', async () => {
+    try {
+        const { exec } = require('child_process');
+        const updateScript = path.join(__dirname, '..', 'UPDATE.bat');
+
+        // Check if UPDATE.bat exists
+        try {
+            await fs.access(updateScript);
+        } catch {
+            return { success: false, error: 'UPDATE.bat not found' };
+        }
+
+        // Run update script
+        return new Promise((resolve) => {
+            exec(`start cmd /c "${updateScript}"`, { cwd: path.join(__dirname, '..') }, (error) => {
+                if (error) {
+                    resolve({ success: false, error: error.message });
+                } else {
+                    resolve({ success: true, message: 'Update script started' });
+                }
+            });
+        });
+    } catch (error) {
+        console.error('Error running update:', error);
+        return { success: false, error: error.message };
+    }
+});
+
 
 // ============================================
 // SCANNER SERVICE MANAGEMENT

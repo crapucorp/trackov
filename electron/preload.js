@@ -36,6 +36,12 @@ contextBridge.exposeInMainWorld('electron', {
         onDownloaded: (callback) => ipcRenderer.on('app-update-downloaded', (event, info) => callback(info)),
     },
 
+    // GitHub updater (for portable version)
+    githubUpdater: {
+        checkForUpdates: () => ipcRenderer.invoke('check-github-updates'),
+        downloadUpdate: () => ipcRenderer.invoke('download-github-update'),
+    },
+
     // Smart Scan feature
     scan: {
         start: () => ipcRenderer.invoke('scan:start'),
